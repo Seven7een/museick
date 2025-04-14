@@ -1,0 +1,15 @@
+
+/* Keep basic font smoothing and text rendering optimizations */
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove default body margin (CssBaseline also does this) */
+body {
+  margin: 0;
+}
+
+
