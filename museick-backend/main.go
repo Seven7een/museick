@@ -11,6 +11,7 @@ import (
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/handlers"
 	"github.com/seven7een/museick/museick-backend/internal/services"
+	"github.com/seven7een/museick/museick-backend/middleware"
 
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -83,8 +84,8 @@ func main() {
 	// API Routes
 	api := router.Group("/api")
 	{
-		// api.Use(middleware.VerifyClerkSession())
-		// api.Use(middleware.AttachUserFromClerk())
+		api.Use(middleware.VerifyClerkSession())
+		api.Use(middleware.AttachUserFromClerk())
 
 		// User Routes
 		api.POST("/users", userHandler.CreateUser)

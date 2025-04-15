@@ -5,25 +5,31 @@ import { ThemeProvider, CssBaseline, Container } from '@mui/material';
 
 import theme from '@/theme/theme';
 import Navbar from '@/components/layout/Navbar';
-// Remove direct import of SpotifySearch if it's only used in HomePage now
-// import SpotifySearch from '@/features/spotify/SpotifySearch';
 import Callback from '@/pages/Callback';
-import HomePage from '@/pages/Home'; // <-- Import the new HomePage component
+import HomePage from '@/pages/Home';
+import Playground from '@/pages/Playground';
+import NavigationSpeedDial from '@/components/layout/NavigationSpeedDial'; // <-- Import Speed Dial
 
 const App: React.FC = () => (
   <ThemeProvider theme={theme}>
     <CssBaseline />
     <Router>
       <Navbar />
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      {/* Page content container */}
+      <Container maxWidth="lg" sx={{ py: 4, mb: 10 /* Add margin-bottom to prevent overlap with dial */ }}>
         <Routes>
-          {/* Update the root path to render HomePage */}
-          <Route path="/" element={<HomePage />} /> {/* <-- Use HomePage here */}
-          {/* Keep the callback route */}
+          {/* Route for the Home page */}
+          <Route path="/" element={<HomePage />} />
+          {/* Route for the Spotify callback */}
           <Route path="/callback" element={<Callback />} />
+          {/* Route for the Component Playground */}
+          <Route path="/playground" element={<Playground />} />
           {/* Add other routes here if needed */}
         </Routes>
       </Container>
+
+      {/* Navigation Speed Dial - Placed outside the main content Container */}
+      <NavigationSpeedDial /> {/* <-- Add Speed Dial Component */}
     </Router>
   </ThemeProvider>
 );

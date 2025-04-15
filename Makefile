@@ -52,7 +52,7 @@ run-tests: swag
 .PHONY: clean-volumes
 clean-volumes: compose-down
 	@echo "--- Removing Docker Volumes (WARNING: DATA LOSS) ---"
-	sudo docker volume rm museick_mongodata museick_frontend_node_modules || true # Ignore errors if volumes don't exist
+	sudo docker volume rm museick_mongodata || true # Ignore errors if volumes don't exist
 
 # Optional: Add a prune target for general cleanup
 .PHONY: docker-prune
