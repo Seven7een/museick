@@ -45,62 +45,6 @@ Museick is a calendar-based music journal that helps users reflect on their list
 
 ---
 
-## 🗂 Data Models (MongoDB)
-
-### `users`
-```ts
-{
-  _id: ObjectId,
-  clerkId: string,
-  createdAt: ISODate,
-  spotifyId: string,
-  // other profile info
-}
-```
-
-### `songs`
-```ts
-{
-  _id: ObjectId,
-  spotifyId: string,
-  name: string,
-  artist: string,
-  album: string,
-  addedByUsers: [ObjectId]  // cross-user reference
-}
-```
-
-### `user_songs`
-```ts
-{
-  _id: ObjectId,
-  userId: ObjectId,
-  songId: ObjectId,
-  month: "2025-04",
-  addedAt: ISODate,
-  changedCount: number,
-  type: "muse" | "ick" | null
-}
-```
-
----
-
-## 🔌 API Endpoints (Sketch)
-
-- `GET /month/:userId/:month` → Get user's monthly data
-- `POST /add-song` → Add a candidate to month
-- `POST /select` → Mark song as Muse or Ick
-- `GET /recap/:userId` → Compile year-end story
-
----
-
-## 🔐 Clerk Integration
-- Clerk issues a JWT with a unique `sub` (subject) field
-- Use `sub` to identify users in the database via `clerkId`
-- Authenticate and validate token on each request
-
----
-
 ## 🚧 Future Ideas
 - Per-song notes or stories
 - Export playlist to Spotify
@@ -109,6 +53,5 @@ Museick is a calendar-based music journal that helps users reflect on their list
 
 ---
 
-This README is a living document. Expect structure changes, schema evolution, and wild ideas. Let’s build 🎶
-
+This README is a living document.
 

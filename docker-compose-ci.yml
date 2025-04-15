@@ -1,0 +1,27 @@
+services:
+  museick-test-db:
+    image: mongo:7.0
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+    ports:
+      - "27018:27017"
+
+  museick-backend:
+    image: ${BACKEND_IMAGE}
+    depends_on:
+      - museick-test-db
+    command:
+      - "go"
+      - "test"
+      - "-v"
+      - "./..."
+    environment:
+      MONGO_URI: mongodb://museick-test-db:27017
+      MONGO_DB: ${MONGO_DB}
+      PORT: ${PORT}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}

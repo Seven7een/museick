@@ -1,0 +1,32 @@
+# /museick-frontend/Dockerfile.dev.vite
+# For running the Vite development server with HMR
+
+# Use a recent Node LTS version
+FROM node:20-bullseye AS base
+
+WORKDIR /usr/src/app
+
+# Copy only files required to install dependencies for better caching
+COPY package*.json ./
+
+# Use cache mount to speed up install of existing dependencies
+# Ensure you run docker build with BuildKit enabled (usually default now)
+RUN --mount=type=cache,target=/usr/src/app/.npm \
+  npm set cache /usr/src/app/.npm && \
+  npm install
+
+# Copy the rest of the application code
+# Note: This will be overlayed by the volume mount in docker-compose,
+# but it's good practice for potential standalone builds.
+COPY . .
+
+# Vite dev server default port
+EXPOSE 5173
+
+# Basic healthcheck - checks if the server is responding on the root
+# Vite dev server doesn't have /ping by default
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD curl -f http://localhost:5173 || exit 1
+
+# Run the Vite dev server, listening on all interfaces (--host)
+CMD ["npm", "run", "dev", "--", "--host"]

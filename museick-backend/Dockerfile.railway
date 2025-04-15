@@ -1,0 +1,29 @@
+FROM golang:1.24-bullseye AS build-base
+WORKDIR /app
+COPY go.mod go.sum ./
+
+FROM build-base AS dev
+RUN go install github.com/air-verse/air@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest
+COPY . .
+CMD ["air", "-c", ".air.toml"]
+
+FROM build-base AS build-production
+RUN useradd -u 1001 nonroot
+COPY . .
+RUN go build \
+  -ldflags="-linkmode external -extldflags -static" \
+  -tags netgo \
+  -o museick-backend \
+  -buildvcs=false
+
+FROM scratch
+ENV GIN_MODE=release
+WORKDIR /
+COPY --from=build-production /etc/passwd /etc/passwd
+COPY --from=build-production /app/museick-backend museick-backend
+COPY --from=build-production /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+USER nonroot
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8080/ping || exit 1
+CMD ["/museick-backend"]

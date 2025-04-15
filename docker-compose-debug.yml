@@ -1,0 +1,24 @@
+services:
+  museick-backend:
+    build:
+      context: ./museick-backend
+      dockerfile: Dockerfile.dev
+      target: dev
+    command:
+      - "dlv"
+      - "debug"
+      - "/app/main.go"
+      - "--listen=:4000"
+      - "--headless=true"
+      - "--log=true"
+      - "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc"
+      - "--accept-multiclient"
+      - "--continue"
+      - "--api-version=2"
+    ports:
+      - "8080:8080"
+      - "4000:4000"
+    volumes:
+      - ./museick-backend:/app
+    depends_on:
+      - mongo

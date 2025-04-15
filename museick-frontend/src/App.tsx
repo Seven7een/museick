@@ -5,8 +5,10 @@ import { ThemeProvider, CssBaseline, Container } from '@mui/material';
 
 import theme from '@/theme/theme';
 import Navbar from '@/components/layout/Navbar';
-import SpotifySearch from '@/features/spotify/SpotifySearch';
+// Remove direct import of SpotifySearch if it's only used in HomePage now
+// import SpotifySearch from '@/features/spotify/SpotifySearch';
 import Callback from '@/pages/Callback';
+import HomePage from '@/pages/Home'; // <-- Import the new HomePage component
 
 const App: React.FC = () => (
   <ThemeProvider theme={theme}>
@@ -15,8 +17,11 @@ const App: React.FC = () => (
       <Navbar />
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Routes>
-          <Route path="/" element={<SpotifySearch />} />
+          {/* Update the root path to render HomePage */}
+          <Route path="/" element={<HomePage />} /> {/* <-- Use HomePage here */}
+          {/* Keep the callback route */}
           <Route path="/callback" element={<Callback />} />
+          {/* Add other routes here if needed */}
         </Routes>
       </Container>
     </Router>

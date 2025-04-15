@@ -1,0 +1,15 @@
+services:
+  museick-backend:
+    build:
+      context: ./museick-backend
+      dockerfile: Dockerfile.dev
+      target: dev
+    command:
+      - "go"
+      - "test"
+      - "-v"
+      - "./..."
+    volumes:
+      - ./museick-backend:/app
+    depends_on:
+      - mongo

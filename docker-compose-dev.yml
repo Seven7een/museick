@@ -1,0 +1,113 @@
+# docker-compose-dev.yml
+
+services:
+  # --- Backend Service ---
+  museick-backend:
+    container_name: museick-backend-1 # Optional: explicit container name
+    build:
+      context: ./museick-backend
+      dockerfile: Dockerfile.dev
+      target: dev # Assuming your backend Dockerfile has a 'dev' target using air
+    ports:
+      - "8080:8080" # Map host 8080 to container 8080
+    networks:
+      - backend
+    volumes:
+      - type: bind
+        source: ./museick-backend # Mount backend source code
+        target: /app/
+      # Optional: Cache Go build/mod cache if needed
+      # - go-build-cache:/root/.cache/go-build
+      # - go-mod-cache:/go/pkg/mod
+    env_file:
+      - ./museick-backend/app.env # Load backend environment variables
+    depends_on:
+      mongo:
+        condition: service_healthy # Wait for mongo to be healthy (if mongo has healthcheck)
+    restart: unless-stopped
+    # Add healthcheck if your backend has one (e.g., /ping endpoint)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # --- Database Service ---
+  mongo:
+    container_name: museick-mongo-1 # Optional: explicit container name
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    networks:
+      - backend
+    volumes:
+      - mongodata:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+      MONGO_INITDB_DATABASE: museick
+    restart: unless-stopped
+    # Add official mongo healthcheck if desired (requires specific command)
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # --- Frontend Service (Vite Dev Server) ---
+  museick-frontend-vite:
+    container_name: museick-frontend-vite-1
+    image: museick-frontend-vite-dev
+    build:
+      context: ./museick-frontend
+      dockerfile: Dockerfile.dev.vite
+    stdin_open: true
+    tty: true
+    volumes:
+      - type: bind
+        source: ./museick-frontend # Source code mount
+        target: /usr/src/app/
+      - type: volume
+        target: /usr/src/app/node_modules
+      - type: bind
+        source: ./museick-frontend/vite.config.js
+        target: /usr/src/app/vite.config.js
+    networks:
+      - frontend
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    depends_on:
+      - museick-backend
+
+  # --- Frontend Service (Nginx serving built files) ---
+
+  museick-frontend-nginx:
+    container_name: museick-frontend-nginx-1 # Optional: explicit container name
+    image: museick-frontend-nginx-dev # Custom image name
+    build:
+      context: ./museick-frontend # Point to the frontend directory
+      dockerfile: Dockerfile.dev.nginx
+    # init: true
+    networks:
+      - frontend # Connect to the frontend network
+    ports:
+      - "80:8080"
+    restart: unless-stopped
+    depends_on: # Depends on backend only if Nginx needs to proxy API calls (not the case here)
+      - museick-backend
+
+volumes:
+  mongodata: # Persistent volume for MongoDB data
+    name: museick_mongodata # Explicit name
+
+networks:
+  frontend:
+    name: museick-frontend # Define the network
+    driver: bridge
+  backend:
+    name: museick-backend # Define the network
+    driver: bridge
+
