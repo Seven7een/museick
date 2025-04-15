@@ -1,14 +1,18 @@
 // src/components/layout/Navbar.tsx
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // Import Link for routing
 import { AppBar, Toolbar, Typography, Box, Button, Chip } from '@mui/material';
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { buildSpotifyAuthUrl } from '@/features/spotify/auth';
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react"; // Clerk components
+import { buildSpotifyAuthUrl } from '@/features/spotify/auth'; // Spotify auth helper
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Icon for connected state
-import LinkOffIcon from '@mui/icons-material/LinkOff'; // Optional: Icon for disconnect on hover/focus
+import LinkOffIcon from '@mui/icons-material/LinkOff'; // Icon for disconnect state
+import SpotifyIcon from '@mui/icons-material/Link'; // <-- Corrected import
 
 const Navbar: React.FC = () => {
   // State to track if Spotify access token exists in sessionStorage
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  // State to track hover status of the Spotify chip
+  const [isChipHovered, setIsChipHovered] = useState(false);
 
   // Effect to manage Spotify connection status and listen for updates
   useEffect(() => {
@@ -22,47 +26,53 @@ const Navbar: React.FC = () => {
     checkToken();
 
     // Define the handler for the custom 'spotifyAuthSuccess' event
-    // This event is dispatched by the Callback component upon successful token exchange
     const handleAuthSuccess = () => {
       console.log('Navbar received spotifyAuthSuccess event, updating state.');
-      setIsSpotifyConnected(true); // Update state without needing a page reload
+      setIsSpotifyConnected(true);
     };
 
-    // Add event listener to listen for successful Spotify connection
+    // Add event listener
     window.addEventListener('spotifyAuthSuccess', handleAuthSuccess);
 
-    // Cleanup function: Remove the event listener when the component unmounts
-    // This prevents memory leaks
+    // Cleanup function
     return () => {
       window.removeEventListener('spotifyAuthSuccess', handleAuthSuccess);
     };
-  }, []); // Empty dependency array: setup listener and initial check only once on mount
+  }, []);
 
   // Function to initiate the Spotify authorization flow
   const handleSpotifyLogin = async () => {
-    const url = await buildSpotifyAuthUrl(); // Build the Spotify auth URL
-    window.location.href = url; // Redirect the user to Spotify
+    const url = await buildSpotifyAuthUrl();
+    window.location.href = url;
   };
 
   // Function to handle disconnecting Spotify
   const handleSpotifyDisconnect = () => {
     console.log('Disconnecting Spotify...');
-    // Remove the token from session storage
     sessionStorage.removeItem('spotify_access_token');
-    // Update the local state (though reload will reset it anyway)
     setIsSpotifyConnected(false);
-    // Optionally notify backend or perform other cleanup if needed
-    // Refresh the page to ensure all components reflect the change
     window.location.reload();
   };
 
   return (
     <AppBar position="static">
       <Toolbar>
-        {/* App Title */}
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>Museick</Typography>
+        {/* --- App Title as Link --- */}
+        <Typography
+          variant="h6"
+          component={Link}
+          to="/"
+          sx={{
+            flexGrow: 1,
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { opacity: 0.9 }
+          }}
+        >
+          Museick
+        </Typography>
 
-        {/* Right-aligned items */}
+        {/* Right-aligned items container */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           {/* Content shown when user is signed OUT */}
           <SignedOut>
@@ -77,40 +87,71 @@ const Navbar: React.FC = () => {
           <SignedIn>
             {/* Conditionally render Spotify button OR connected indicator */}
             {!isSpotifyConnected ? (
-              // Show "Connect Spotify" button if token is NOT present
-              <Button color="inherit" onClick={handleSpotifyLogin} sx={{ mr: 2 }}>
-                Connect Spotify
-              </Button>
-            ) : (
-              // Show an indicator chip if token IS present, make it clickable
+              // --- Use Chip for "Connect Spotify" ---
               <Chip
-                icon={<CheckCircleIcon />}
-                label="Spotify Connected"
-                color="success"
+                icon={<SpotifyIcon />} // Use Corrected Spotify icon
+                label="Connect Spotify"
                 variant="outlined"
                 size="small"
-                // Add onClick handler to trigger disconnect
-                onClick={handleSpotifyDisconnect}
-                // Add styling to indicate it's clickable
+                onClick={handleSpotifyLogin}
                 sx={{
                   mr: 2,
-                  color: 'white',
-                  borderColor: 'rgba(255, 255, 255, 0.7)',
-                  cursor: 'pointer', // Make cursor a pointer on hover
-                  '&:hover': { // Optional: Change appearance on hover
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    // You could even change the icon/label on hover if desired
+                  color: 'white', // Default text color
+                  borderColor: 'rgba(255, 255, 255, 0.7)', // Default border
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out', // Added color transition
+                  '& .MuiChip-icon': { // Style the icon color
+                      color: '#1DB954', // Spotify green icon always
+                      transition: 'color 0.2s ease-in-out', // Smooth icon color transition (though it stays green here)
                   },
-                  '&:focus': { // Accessibility improvement
-                     backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  '&:hover': {
+                    color: 'white', // Keep text white on hover
+                    backgroundColor: 'rgba(29, 185, 84, 0.1)', // Light Spotify green background
+                    borderColor: 'rgba(29, 185, 84, 0.9)', // Brighter Spotify green border
+                    // Icon color is already set above
+                  },
+                  '&:focus': { // Accessibility focus style
+                     backgroundColor: 'rgba(29, 185, 84, 0.15)',
+                     borderColor: 'rgba(29, 185, 84, 0.9)',
                   }
                 }}
-                // Optional: Add a tooltip for clarity
+                title="Connect your Spotify account"
+              />
+            ) : (
+              // Show Spotify Connected/Disconnect Chip
+              <Chip
+                icon={isChipHovered ? <LinkOffIcon /> : <CheckCircleIcon />}
+                label={isChipHovered ? 'Disconnect Spotify' : 'Spotify Connected'}
+                // Use sx for dynamic colors instead of 'color' prop for more control
+                // color={isChipHovered ? 'error' : 'success'} // Removed this
+                variant="outlined"
+                size="small"
+                onClick={handleSpotifyDisconnect}
+                onMouseEnter={() => setIsChipHovered(true)}
+                onMouseLeave={() => setIsChipHovered(false)}
+                sx={{
+                  mr: 2,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out',
+                  // Default (Connected) State - Greenish
+                  color: 'white',
+                  borderColor: isChipHovered ? 'rgba(211, 47, 47, 0.7)' : 'rgba(46, 125, 50, 0.7)', // Reddish border on hover, Greenish otherwise
+                  backgroundColor: isChipHovered ? 'rgba(211, 47, 47, 0.1)' : 'rgba(46, 125, 50, 0.1)', // Reddish bg on hover, Greenish otherwise
+                  '& .MuiChip-icon': { // Icon color based on hover
+                      color: isChipHovered ? 'rgb(211, 47, 47)' : 'rgb(46, 125, 50)', // Red icon on hover, Green otherwise
+                      transition: 'color 0.2s ease-in-out',
+                  },
+                  // Hover styles are now handled directly by the state-dependent base styles
+                  '&:focus': { // Keep a focus style
+                     backgroundColor: isChipHovered ? 'rgba(211, 47, 47, 0.15)' : 'rgba(46, 125, 50, 0.15)',
+                     borderColor: isChipHovered ? 'rgba(211, 47, 47, 0.9)' : 'rgba(46, 125, 50, 0.9)',
+                  }
+                }}
                 title="Click to disconnect Spotify"
               />
             )}
 
-            {/* Clerk User Button (manage profile, sign out) */}
+            {/* Clerk User Button */}
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
         </Box>

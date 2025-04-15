@@ -1,6 +1,7 @@
 // src/pages/Playground.tsx
 import React from 'react';
 import { Box, Typography, Container, Divider } from '@mui/material';
+import SpotifySearch from '@/features/spotify/SpotifySearch';
 
 // --- Corrected Import Name ---
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid'; // Adjust path if needed
@@ -25,6 +26,8 @@ const Playground: React.FC = () => {
       <Divider sx={{ my: 5 }} />
 
       <YearlySelectionGrid mode="favorite" itemType="album" year={currentYear} />
+
+      <SpotifySearch />
 
     </Container>
   );

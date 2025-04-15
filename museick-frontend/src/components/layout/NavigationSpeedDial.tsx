@@ -2,61 +2,65 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, SpeedDial, SpeedDialIcon, SpeedDialAction } from '@mui/material';
+import { useAuth } from "@clerk/clerk-react"; // Import useAuth
 
-// Import icons for your actions
+// Import icons
 import HomeIcon from '@mui/icons-material/Home';
-import BuildIcon from '@mui/icons-material/Build'; // Icon for Playground
-// import MenuIcon from '@mui/icons-material/Menu'; // Alternative main icon
-// import CloseIcon from '@mui/icons-material/Close'; // Alternative open icon
+import BuildIcon from '@mui/icons-material/Build';
+import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import PersonIcon from '@mui/icons-material/Person';
+import AlbumIcon from '@mui/icons-material/Album';
 
-// Define the navigation actions
+// Define the navigation actions with an optional 'requiresAuth' flag
 const actions = [
-  { icon: <HomeIcon />, name: 'Home', route: '/' },
-  { icon: <BuildIcon />, name: 'Playground', route: '/playground' },
-  // Add more actions here as needed, excluding '/callback'
-  // { icon: <SomeOtherIcon />, name: 'Another Page', route: '/another-page' },
+  { icon: <HomeIcon />, name: 'Home', route: '/', requiresAuth: false },
+  { icon: <MusicNoteIcon />, name: 'Tracks', route: '/tracks', requiresAuth: true }, // Requires auth
+  { icon: <AlbumIcon />, name: 'Albums', route: '/albums', requiresAuth: true }, // Requires auth
+  { icon: <PersonIcon />, name: 'Artists', route: '/artists', requiresAuth: true }, // Requires auth
+  { icon: <BuildIcon />, name: 'Playground', route: '/playground', requiresAuth: false }, // Assuming playground is public/dev only
 ];
 
 const NavigationSpeedDial: React.FC = () => {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false); // Control SpeedDial open state
+  const [open, setOpen] = useState(false);
+  const { isSignedIn } = useAuth(); // Get Clerk auth state
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  // Handler for clicking an action
   const handleActionClick = (route: string) => {
     navigate(route);
-    handleClose(); // Close the dial after navigation
+    handleClose();
   };
+
+  // Filter actions based on authentication status
+  const filteredActions = actions.filter(action =>
+    !action.requiresAuth || isSignedIn // Show if auth not required OR if user is signed in
+  );
 
   return (
     <Box
       sx={{
-        position: 'fixed', // Keep it fixed on the screen
-        bottom: 16, // Adjust spacing from bottom
-        right: 16, // Adjust spacing from right
-        zIndex: (theme) => theme.zIndex.drawer + 1, // Ensure it's above most content
-        height: 320, // Example height, adjust based on number of actions
-        transform: 'translateZ(0px)', // Needed for positioning context
-        flexGrow: 1, // Needed for positioning context
+        position: 'fixed', bottom: 16, right: 16, zIndex: (theme) => theme.zIndex.drawer + 1,
+        transform: 'translateZ(0px)', flexGrow: 1,
       }}
     >
       <SpeedDial
         ariaLabel="Navigation speed dial"
         sx={{ position: 'absolute', bottom: 0, right: 0 }}
-        icon={<SpeedDialIcon /* openIcon={<CloseIcon />} */ />} // Default icons, can customize
+        icon={<SpeedDialIcon />}
         onClose={handleClose}
         onOpen={handleOpen}
         open={open}
-        direction="up" // Actions appear upwards
+        direction="up"
       >
-        {actions.map((action) => (
+        {/* Map over the FILTERED actions */}
+        {filteredActions.map((action) => (
           <SpeedDialAction
             key={action.name}
             icon={action.icon}
             tooltipTitle={action.name}
-            tooltipOpen // Make tooltips always visible when dial is open on desktop
+            tooltipOpen
             onClick={() => handleActionClick(action.route)}
           />
         ))}

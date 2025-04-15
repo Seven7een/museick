@@ -1,78 +1,144 @@
 // src/pages/Home.tsx
-import React, { useState, useEffect } from 'react'; // Import useState, useEffect
-import { Box, Divider, Snackbar, Alert } from '@mui/material'; // Import Snackbar, Alert
-import { useAuth } from "@clerk/clerk-react";
+import React, { useState, useEffect } from 'react';
+import { Box, Divider, Snackbar, Alert, Typography, Paper, Button, Collapse, IconButton } from '@mui/material'; // Added Collapse, IconButton
+import CloseIcon from '@mui/icons-material/Close'; // Icon for dismissing alert
+import { useAuth, SignInButton } from "@clerk/clerk-react";
 
-import SpotifySearch from '@/features/spotify/SpotifySearch';
 import SpotifyTopSongs from '@/features/spotify/SpotifyTopSongs';
+import { buildSpotifyAuthUrl } from '@/features/spotify/auth'; // Import function to build auth URL
 
-// Define type for severity used by Alert component
 type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
 
 const HomePage: React.FC = () => {
-  const { isSignedIn } = useAuth(); // Get Clerk authentication state
+  const { isSignedIn } = useAuth(); // Clerk auth state
 
-  // State variables for controlling the Snackbar
+  // State for Spotify connection status
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  // State for showing/hiding the Spotify connection prompt alert
+  const [showSpotifyPrompt, setShowSpotifyPrompt] = useState(true);
+
+  // State for the general Snackbar (connection success/failure)
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertSeverity>('info'); // Default severity
+  const [snackbarSeverity, setSnackbarSeverity] = useState<AlertSeverity>('info');
 
-  // Effect hook to check for Spotify auth status when the component mounts
+  // Effect to check Spotify token status on mount and when sign-in status changes
   useEffect(() => {
-    // Check sessionStorage for the status set by the Callback component
-    const status = sessionStorage.getItem('spotify_auth_status');
-    // const errorMessage = sessionStorage.getItem('spotify_auth_error'); // Optional: get specific error message
+    if (isSignedIn) {
+      const token = sessionStorage.getItem('spotify_access_token');
+      setIsSpotifyConnected(!!token);
+      // Reset prompt visibility if user logs in and isn't connected
+      setShowSpotifyPrompt(!token);
+    } else {
+      // Clear spotify status if user signs out
+      setIsSpotifyConnected(false);
+    }
+  }, [isSignedIn]); // Re-run when Clerk sign-in status changes
 
+  // Effect hook for the general Snackbar (remains the same)
+  useEffect(() => {
+    const status = sessionStorage.getItem('spotify_auth_status');
     if (status) {
-      // If a status exists, configure and show the Snackbar
       if (status === 'success') {
         setSnackbarMessage('Spotify connected successfully!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
+        setIsSpotifyConnected(true); // Also update local state
+        setShowSpotifyPrompt(false); // Hide prompt on success
       } else if (status === 'error') {
-        // Use a generic error message or a specific one if stored
-        setSnackbarMessage('Failed to connect Spotify.'); // Or: `Failed to connect Spotify: ${errorMessage || 'Unknown error'}`
+        setSnackbarMessage('Failed to connect Spotify.');
         setSnackbarSeverity('error');
         setSnackbarOpen(true);
       }
-
-      // IMPORTANT: Clean up the status flags from sessionStorage
-      // This prevents the Snackbar from reappearing on subsequent visits or refreshes
       sessionStorage.removeItem('spotify_auth_status');
-      // sessionStorage.removeItem('spotify_auth_error'); // Clean up error message too if used
     }
-  }, []); // Empty dependency array ensures this effect runs only once on mount
+  }, []); // Runs once on mount
 
-  // Handler function to close the Snackbar
+  // Handler for closing the general Snackbar
   const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
-    // Prevent closing if the user clicks away (optional)
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbarOpen(false); // Close the Snackbar
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+  };
+
+  // Handler for initiating Spotify login
+  const handleSpotifyLogin = async () => {
+    const url = await buildSpotifyAuthUrl();
+    window.location.href = url;
   };
 
   return (
     <Box>
-      {/* Spotify Search component */}
-      <SpotifySearch />
+      {/* --- Spotify Connection Prompt Alert --- */}
+      {/* Show only if: Signed in via Clerk, NOT connected to Spotify, AND prompt hasn't been dismissed */}
+      <Collapse in={isSignedIn && !isSpotifyConnected && showSpotifyPrompt}>
+        <Alert
+          severity="warning" // Or "info"
+          sx={{ mb: 2 }}
+          action={
+            <>
+              <Button color="inherit" size="small" onClick={handleSpotifyLogin}>
+                Connect Now
+              </Button>
+              <IconButton
+                aria-label="close prompt"
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setShowSpotifyPrompt(false); // Dismiss the prompt
+                }}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            </>
+          }
+        >
+          This site is much better with Spotify integration! Please connect your Spotify account.
+        </Alert>
+      </Collapse>
 
-      {/* Conditionally render Top Songs only if the user is signed in via Clerk */}
-      {isSignedIn && (
+      {/* --- Main Content Area --- */}
+      {!isSignedIn ? (
+        // --- Content for Signed-Out Users ---
+        <Paper elevation={2} sx={{ p: 4, mt: 4, textAlign: 'center' }}>
+          <Typography variant="h5" gutterBottom>
+            See Your Spotify Insights
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Sign in with the button in the top right to view your top tracks and manage your monthly Muses & Icks!
+          </Typography>
+          {/* Optional redundant button: */}
+          {/* <SignInButton mode="modal"><Button variant="contained">Sign In</Button></SignInButton> */}
+        </Paper>
+      ) : isSpotifyConnected ? (
+        // --- Content for Signed-In Users WITH Spotify Connected ---
         <>
-          <Divider sx={{ my: 4 }} /> {/* Visual separator */}
+          <Typography variant="h4" align="center" gutterBottom>Welcome!</Typography>
+          <Divider sx={{ my: 4 }} />
           <SpotifyTopSongs />
         </>
+      ) : (
+        // --- Content for Signed-In Users WITHOUT Spotify Connected (Prompt might be hidden) ---
+        <Box sx={{ textAlign: 'center', mt: 4, p: 2 }}>
+           <Typography variant="h5" gutterBottom>Welcome!</Typography>
+           <Typography variant="body1" color="text.secondary">
+             Connect your Spotify account to see your top tracks and start curating your Muses & Icks.
+           </Typography>
+           {/* Optionally add a button here too if the alert is dismissed */}
+           {!showSpotifyPrompt && (
+              <Button variant="outlined" onClick={handleSpotifyLogin} sx={{ mt: 2 }}>
+                Connect Spotify
+              </Button>
+           )}
+        </Box>
       )}
 
-      {/* Snackbar Component for displaying connection status */}
+      {/* General Snackbar Component */}
       <Snackbar
         open={snackbarOpen}
-        autoHideDuration={6000} // Automatically hide after 6 seconds
+        autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }} // Position at bottom-center
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        {/* Use MUI Alert component inside Snackbar for better styling and severity icons */}
         <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
           {snackbarMessage}
         </Alert>
