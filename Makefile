@@ -37,6 +37,11 @@ compose-down:
 	@echo "--- Stopping Docker Containers (Dev) ---"
 	sudo docker compose -f $(DEV_COMPOSE_FILE) down
 
+.PHONY: compose-up-backend
+compose-up-backend: swag
+	@echo "--- Starting Backend and Mongo Containers (Dev) ---"
+	sudo docker compose -f $(DEV_COMPOSE_FILE) up museick-backend mongo
+
 # Run backend tests using docker compose
 .PHONY: run-tests
 run-tests: swag

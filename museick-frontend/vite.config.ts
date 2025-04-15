@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const env = loadEnv('', process.cwd(), '');
 // e.g. http://museick-backend:8080
-const apiTarget = env.VITE_BACKEND_API_ADDR || 'http://localhost:8080';
+const apiTarget = env.VITE_BACKEND_API_ADDR || 'http://127.0.0.1:8080';
 
 
 // https://vite.dev/config/
@@ -21,14 +21,12 @@ export default defineConfig({
     },
   },
   server: {
-    host: true,
+    host: "0.0.0.0",
     proxy: {
       // Proxy requests that start with /api/
       '/api/': {
         target: apiTarget,
         changeOrigin: true, // Needed for virtual hosted sites
-        // Rewrite the path: remove the '/api/' prefix before forwarding
-        // e.g., /api/users -> /users
         secure: false, // Set to true if backend is HTTPS with valid cert
       },
       '/health/': {
