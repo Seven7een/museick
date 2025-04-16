@@ -107,3 +107,7 @@ export const getMyTopTracks = async (timeRange: 'short_term' | 'medium_term' | '
 };
 */
 
+export type { SpotifySearchResults,
+SpotifyTrackItem,
+SpotifyArtistItem,
+SpotifyAlbumItem }
