@@ -1,9 +1,8 @@
-// src/components/layout/SelectionPageLayout.tsx
 import React, { useState } from 'react';
-import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Paper, Button } from '@mui/material'; // Added Paper, Button
+import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Paper, Button } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
-import { useAuth, SignInButton } from "@clerk/clerk-react"; // Import useAuth, SignInButton
+import { useAuth, SignInButton } from "@clerk/clerk-react";
 
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
 import { GridItemType, GridMode } from '@/types/spotify.types';
@@ -11,11 +10,12 @@ import { GridItemType, GridMode } from '@/types/spotify.types';
 interface SelectionPageLayoutProps {
   itemType: GridItemType;
   year: number;
+  pageTitle: string;
 }
 
-const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year }) => {
+const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year, pageTitle }) => {
   const [visibleMode, setVisibleMode] = useState<GridMode>('favorite');
-  const { isSignedIn } = useAuth(); // Get Clerk auth state
+  const { isSignedIn } = useAuth();
 
   const handleModeChange = (
     event: React.MouseEvent<HTMLElement>,
@@ -26,28 +26,24 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
     }
   };
 
-  const pageTitle = itemType.charAt(0).toUpperCase() + itemType.slice(1) + 's';
-
-  // --- Protection Guard ---
   if (!isSignedIn) {
     return (
-      <Container maxWidth="sm" sx={{ py: 4, textAlign: 'center' }}> {/* Center content */}
-        <Paper elevation={2} sx={{ p: 4, mt: 4 }}>
+      <Container maxWidth="sm" sx={{ textAlign: 'center', mt: 8 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Access Denied
+            Please Sign In
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            Please sign in to manage your yearly {pageTitle.toLowerCase()}.
+            You need to be signed in to view and manage your {pageTitle.toLowerCase()} for {year}.
           </Typography>
           <SignInButton mode="modal">
-             <Button variant="contained">Sign In</Button>
+            <Button variant="contained">Sign In</Button>
           </SignInButton>
         </Paper>
       </Container>
     );
   }
 
-  // --- Render actual layout if signed in ---
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom align="center">

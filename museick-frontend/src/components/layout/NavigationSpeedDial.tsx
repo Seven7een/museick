@@ -1,10 +1,8 @@
-// src/components/layout/NavigationSpeedDial.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, SpeedDial, SpeedDialIcon, SpeedDialAction } from '@mui/material';
-import { useAuth } from "@clerk/clerk-react"; // Import useAuth
+import { useAuth } from "@clerk/clerk-react";
 
-// Import icons
 import HomeIcon from '@mui/icons-material/Home';
 import BuildIcon from '@mui/icons-material/Build';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -23,7 +21,7 @@ const actions = [
 const NavigationSpeedDial: React.FC = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { isSignedIn } = useAuth(); // Get Clerk auth state
+  const { isSignedIn } = useAuth();
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -37,6 +35,11 @@ const NavigationSpeedDial: React.FC = () => {
   const filteredActions = actions.filter(action =>
     !action.requiresAuth || isSignedIn // Show if auth not required OR if user is signed in
   );
+
+  // Don't render the speed dial if there are no actions to show (e.g., signed out and all actions require auth)
+  if (filteredActions.length === 0) {
+    return null;
+  }
 
   return (
     <Box

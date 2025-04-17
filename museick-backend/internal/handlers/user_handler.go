@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/services"
-	"github.com/seven7een/museick/museick-backend/middleware" // For ClerkUserIDKey
+	"github.com/seven7een/museick/museick-backend/middleware"
 )
 
 // UserHandler handles HTTP requests related to users.
@@ -53,7 +53,7 @@ func (h *UserHandler) SyncUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// --- Add other user handlers (CreateUser, GetUser) here if needed ---
+// TODO: Add other user handlers (CreateUser, GetUser) here if needed
 // Example:
 // func (h *UserHandler) CreateUser(c *gin.Context) { ... }
 // func (h *UserHandler) GetUser(c *gin.Context) { ... }

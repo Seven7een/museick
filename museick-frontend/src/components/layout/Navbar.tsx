@@ -1,12 +1,11 @@
-// src/components/layout/Navbar.tsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // Import Link for routing
+import { Link } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Box, Button, Chip } from '@mui/material';
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react"; // Clerk components
-import { buildSpotifyAuthUrl } from '@/features/spotify/auth'; // Spotify auth helper
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Icon for connected state
-import LinkOffIcon from '@mui/icons-material/LinkOff'; // Icon for disconnect state
-import SpotifyIcon from '@mui/icons-material/Link'; // <-- Corrected import
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { buildSpotifyAuthUrl } from '@/features/spotify/auth';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
+import SpotifyIcon from '@mui/icons-material/Link';
 
 const Navbar: React.FC = () => {
   // State to track if Spotify access token exists in sessionStorage
@@ -31,7 +30,6 @@ const Navbar: React.FC = () => {
       setIsSpotifyConnected(true);
     };
 
-    // Add event listener
     window.addEventListener('spotifyAuthSuccess', handleAuthSuccess);
 
     // Cleanup function
@@ -51,13 +49,12 @@ const Navbar: React.FC = () => {
     console.log('Disconnecting Spotify...');
     sessionStorage.removeItem('spotify_access_token');
     setIsSpotifyConnected(false);
-    window.location.reload();
+    window.location.reload(); // Reload to reflect changes everywhere
   };
 
   return (
     <AppBar position="static">
       <Toolbar>
-        {/* --- App Title as Link --- */}
         <Typography
           variant="h6"
           component={Link}
@@ -72,9 +69,7 @@ const Navbar: React.FC = () => {
           Museick
         </Typography>
 
-        {/* Right-aligned items container */}
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {/* Content shown when user is signed OUT */}
           <SignedOut>
             <SignInButton mode="modal">
               <Button variant="outlined" color="inherit" sx={{ ml: 1 }}>
@@ -83,13 +78,11 @@ const Navbar: React.FC = () => {
             </SignInButton>
           </SignedOut>
 
-          {/* Content shown when user is signed IN */}
           <SignedIn>
             {/* Conditionally render Spotify button OR connected indicator */}
             {!isSpotifyConnected ? (
-              // --- Use Chip for "Connect Spotify" ---
               <Chip
-                icon={<SpotifyIcon />} // Use Corrected Spotify icon
+                icon={<SpotifyIcon />}
                 label="Connect Spotify"
                 variant="outlined"
                 size="small"
@@ -108,7 +101,6 @@ const Navbar: React.FC = () => {
                     color: 'white', // Keep text white on hover
                     backgroundColor: 'rgba(29, 185, 84, 0.1)', // Light Spotify green background
                     borderColor: 'rgba(29, 185, 84, 0.9)', // Brighter Spotify green border
-                    // Icon color is already set above
                   },
                   '&:focus': { // Accessibility focus style
                      backgroundColor: 'rgba(29, 185, 84, 0.15)',
@@ -118,7 +110,6 @@ const Navbar: React.FC = () => {
                 title="Connect your Spotify account"
               />
             ) : (
-              // Show Spotify Connected/Disconnect Chip
               <Chip
                 icon={isChipHovered ? <LinkOffIcon /> : <CheckCircleIcon />}
                 label={isChipHovered ? 'Disconnect Spotify' : 'Spotify Connected'}
@@ -136,22 +127,21 @@ const Navbar: React.FC = () => {
                   // Default (Connected) State - Greenish
                   color: 'white',
                   borderColor: isChipHovered ? 'rgba(211, 47, 47, 0.7)' : 'rgba(46, 125, 50, 0.7)', // Reddish border on hover, Greenish otherwise
-                  backgroundColor: isChipHovered ? 'rgba(211, 47, 47, 0.1)' : 'rgba(46, 125, 50, 0.1)', // Reddish bg on hover, Greenish otherwise
-                  '& .MuiChip-icon': { // Icon color based on hover
-                      color: isChipHovered ? 'rgb(211, 47, 47)' : 'rgb(46, 125, 50)', // Red icon on hover, Green otherwise
-                      transition: 'color 0.2s ease-in-out',
+                  backgroundColor: isChipHovered ? 'rgba(211, 47, 47, 0.1)' : 'rgba(46, 125, 50, 0.1)', // Reddish background on hover, Greenish otherwise
+                  '& .MuiChip-icon': {
+                    color: isChipHovered ? 'rgba(211, 47, 47, 0.9)' : 'rgba(46, 125, 50, 0.9)', // Reddish icon on hover, Greenish otherwise
+                    transition: 'color 0.2s ease-in-out',
                   },
-                  // Hover styles are now handled directly by the state-dependent base styles
-                  '&:focus': { // Keep a focus style
-                     backgroundColor: isChipHovered ? 'rgba(211, 47, 47, 0.15)' : 'rgba(46, 125, 50, 0.15)',
-                     borderColor: isChipHovered ? 'rgba(211, 47, 47, 0.9)' : 'rgba(46, 125, 50, 0.9)',
+                  // Hover (Disconnect) State - Reddish
+                  '&:hover': {
+                     backgroundColor: 'rgba(211, 47, 47, 0.2)',
+                     borderColor: 'rgba(211, 47, 47, 0.9)',
                   }
                 }}
                 title="Click to disconnect Spotify"
               />
             )}
 
-            {/* Clerk User Button */}
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
         </Box>

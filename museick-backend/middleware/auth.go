@@ -1,12 +1,10 @@
 package middleware
 
 import (
-	"context" // Added context import (might be needed if you uncomment session check)
-	"fmt"     // Added fmt import (might be needed if you uncomment session check)
+	"errors"
 	"log"
 	"net/http"
 	"strings"
-	"time" // Added time import (might be needed if you uncomment session check)
 
 	"github.com/clerkinc/clerk-sdk-go/clerk"
 	"github.com/gin-gonic/gin"
@@ -75,18 +73,19 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 		if err != nil {
 			log.Printf("⚠️ Clerk token verification failed: %v\n", err)
 
-			// Check if the error is specifically a JWT validation error
-			// This line requires 'go mod tidy' to have run successfully
-			if tokenErr, ok := err.(*jwt.ValidationError); ok && tokenErr.Is(jwt.ErrTokenExpired) {
+			// Use errors.Is to check for specific JWT errors in v5
+			if errors.Is(err, jwt.ErrTokenExpired) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
 			} else {
-				// Handle other verification errors (invalid signature, etc.)
+				// Handle other verification errors (invalid signature, malformed token, etc.)
+				// You could add more specific checks here if needed using errors.Is
+				// e.g., errors.Is(err, jwt.ErrTokenMalformed), errors.Is(err, jwt.ErrTokenSignatureInvalid)
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			}
 			return
 		}
 
-		// Optional: Check if session is active via Clerk API
+		// TODO: Optional: Check if session is active via Clerk API
 		// session, err := client.Sessions().Read(sessClaims.SessionID)
 		// if err != nil || session.Status != clerk.SessionStatusActive {
 		//  log.Printf("⚠️ Clerk session %s is not active or lookup failed: %v\n", sessClaims.SessionID, err)

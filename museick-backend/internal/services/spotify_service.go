@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
 	"github.com/seven7een/museick/museick-backend/initializers"
 )
 
@@ -45,6 +46,7 @@ func (s *SpotifyService) ExchangeCodeForToken(code, codeVerifier string) (map[st
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		// TODO: Log the response body for better debugging
 		return nil, fmt.Errorf("failed to exchange code for token, status: %d", resp.StatusCode)
 	}
 
@@ -62,14 +64,19 @@ func (s *SpotifyService) RefreshAccessToken(refreshToken string) (map[string]int
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", refreshToken)
-	data.Set("client_id", s.ClientID)
+	data.Set("client_id", s.ClientID) // Client ID is needed for refresh
 
 	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create refresh request: %w", err)
 	}
 
+	// Spotify requires Basic Auth for token refresh
+	auth := s.ClientID + ":" + s.ClientSecret
+	encodedAuth := "Basic " + strings.TrimRight(fmt.Sprintf("%s", []byte(auth)), "=") // Basic Auth encoding
+	req.Header.Set("Authorization", encodedAuth)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -78,13 +85,17 @@ func (s *SpotifyService) RefreshAccessToken(refreshToken string) (map[string]int
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		// TODO: Log the response body for better debugging
 		return nil, fmt.Errorf("failed to refresh token, status: %d", resp.StatusCode)
 	}
 
 	var tokenData map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenData); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode refresh response: %w", err)
 	}
 
+	// Note: The refresh response might not include a new refresh_token.
+	// If it does, you should securely store the new one.
+	// If it doesn't, the original refresh_token remains valid.
 	return tokenData, nil
 }

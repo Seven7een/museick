@@ -1,4 +1,3 @@
-// src/components/yearly/SelectionReplaceModal.tsx // Corrected path comment
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, IconButton, Box, Typography,
@@ -11,12 +10,9 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StarIcon from '@mui/icons-material/Star';
 import { MusicNote as MusicNoteIcon, Person as PersonIcon, Album as AlbumIcon } from '@mui/icons-material';
 
-// Import Union Type and specific types
 import { SpotifyGridItem, GridMode, GridItemType } from '@/types/spotify.types';
 import { searchSpotify } from '@/features/spotify/spotifyApi';
 
-// --- Types ---
-// Interface name and props are correct as per previous step
 interface SelectionReplaceModalProps {
   open: boolean;
   onClose: () => void;
@@ -29,16 +25,13 @@ interface SelectionReplaceModalProps {
   itemType: GridItemType;
 }
 
-// --- Mock Data & Logic ---
-// Pass monthName and year to the mock hook
 const useMockShortlist = (
-    currentItem: SpotifyGridItem | undefined, // Pass the source item
+    currentItem: SpotifyGridItem | undefined,
     mode: GridMode,
     itemType: GridItemType,
     monthName: string,
     year: number
 ) => {
-  // Initialize state based on currentItem *once*
   const [shortlist, setShortlist] = useState<SpotifyGridItem[]>(() =>
     currentItem ? [currentItem] : []
   );
@@ -61,21 +54,17 @@ const useMockShortlist = (
     return item;
   };
 
-  // Run this effect ONLY when the external 'currentItem' prop changes.
   useEffect(() => {
     console.log("Current item changed, resetting shortlist state.");
-    // Reset the shortlist based on the new currentItem
     setShortlist(currentItem ? [currentItem] : []);
-  }, [currentItem]); // Depend on the actual prop 'currentItem'
+  }, [currentItem]);
 
   return { shortlist, addToShortlist, selectItem, loadingShortlist: loading, errorShortlist: error };
 };
 
-// --- Debounce Logic ---
 const DEBOUNCE_DELAY = 500;
 const MIN_SEARCH_LENGTH = 3;
 
-// --- Component ---
 const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
   open, onClose, monthIndex, monthName, year, currentItem, onSelectReplacement, mode, itemType
 }) => {
@@ -87,17 +76,14 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
   const [hasSearched, setHasSearched] = useState(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- Mock Shortlist Hook ---
-  // Pass currentItem directly to the hook
   const { shortlist, addToShortlist, selectItem, loadingShortlist, errorShortlist } = useMockShortlist(
-      currentItem, // Pass the prop
+      currentItem,
       mode,
       itemType,
       monthName,
       year
   );
 
-  // Reset search state when modal opens/closes or slot changes
   useEffect(() => {
     if (open) {
       setSearchTerm('');
@@ -106,9 +92,8 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
       setErrorSearch('');
       setHasSearched(false);
     }
-  }, [open, monthIndex]); // Depend on monthIndex
+  }, [open, monthIndex]);
 
-  // --- API Search Logic ---
   const triggerApiSearch = useCallback(async (query: string) => {
      if (!query || query.length < MIN_SEARCH_LENGTH) {
        setSearchResults([]);
@@ -127,7 +112,7 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
            case 'track': relevantResults = searchData.tracks; break;
            case 'artist': relevantResults = searchData.artists; break;
            case 'album': relevantResults = searchData.albums; break;
-           default: relevantResults = []; // Should not happen with GridItemType
+           default: relevantResults = [];
        }
        setSearchResults(relevantResults);
      } catch (err: any) {
@@ -137,9 +122,8 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
      } finally {
        setLoadingSearch(false);
      }
-  }, [itemType]); // Depend on itemType
+  }, [itemType]);
 
-  // --- Debounced Search Effect ---
   useEffect(() => {
      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
      const trimmedSearchTerm = searchTerm.trim();
@@ -161,7 +145,6 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
      };
   }, [searchTerm, triggerApiSearch]);
 
-  // --- Handlers ---
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
   };
@@ -171,24 +154,19 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
   };
 
   const handleSelectClick = async (item: SpotifyGridItem) => {
-    if (monthIndex === null) return; // Check monthIndex
-    // Pass monthIndex to selectItem
+    if (monthIndex === null) return;
     const selected = await selectItem(monthIndex, item);
     if (selected) {
-      // Pass monthIndex to onSelectReplacement
       onSelectReplacement(monthIndex, selected);
       onClose();
     }
   };
 
-  // --- Helpers ---
   const getImageUrl = (item?: SpotifyGridItem): string | undefined => {
       if (!item) return undefined;
-      // Check if it's a Track item
       if ('album' in item && item.album?.images) {
         return item.album.images[item.album.images.length - 1]?.url ?? item.album.images[0]?.url;
       }
-      // Check if it's an Artist or Album item
       if ('images' in item && item.images) {
         return item.images[item.images.length - 1]?.url ?? item.images[0]?.url;
       }
@@ -196,15 +174,13 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
   };
 
   const getSecondaryText = (item: SpotifyGridItem): string => {
-      // Check if it's a Track or Album item (has artists array)
       if ('artists' in item && item.artists) {
         return item.artists.map(a => a.name).join(', ');
       }
-      // Check if it's an Artist item (has genres array)
       if ('genres' in item && item.genres && item.genres.length > 0) {
         return item.genres.slice(0, 2).join(', ');
       }
-      return ''; // Fallback
+      return '';
   };
 
   const isShortlisted = (itemId: string) => shortlist.some(item => item.id === itemId);
@@ -222,7 +198,6 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
         </IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-        {/* Shortlist Section */}
         <Box sx={{ width: { xs: '100%', md: '40%' }, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6" gutterBottom>Shortlist for {monthName}</Typography>
           {loadingShortlist && <CircularProgress size={24} sx={{ alignSelf: 'center', my: 2 }} />}
@@ -257,7 +232,6 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
         <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
         <Divider sx={{ display: { xs: 'block', md: 'none' }, my: 2 }} />
 
-        {/* Search Section */}
         <Box sx={{ width: { xs: '100%', md: '60%' }, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6" gutterBottom>Search Spotify</Typography>
           <TextField

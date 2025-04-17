@@ -1,4 +1,3 @@
-// src/components/yearly/MonthSlot.tsx
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Fab, IconButton, Collapse, useTheme } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -9,10 +8,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
 
-// Import Union Type and specific types
-import { SpotifyGridItem, GridMode, GridItemType } from '@/types/spotify.types';
+import { SpotifyGridItem, GridMode, GridItemType, SpotifyImage } from '@/types/spotify.types';
 
-// --- Corrected Interface Name and Props ---
 interface MonthSlotProps {
   monthIndex: number;
   monthName: string;
@@ -23,89 +20,84 @@ interface MonthSlotProps {
   ariaLabel: string;
 }
 
-// --- Corrected getImageUrl Helper ---
 // Prioritize the first image (largest) or a specific size if needed
 const getImageUrl = (itemData?: SpotifyGridItem): string | undefined => {
   if (!itemData) return undefined;
 
-  let images: { url: string }[] | undefined;
-
-  // Find the images array based on item type
-  if ('album' in itemData && itemData.album?.images) { // Track
-    images = itemData.album.images;
-  } else if ('images' in itemData && itemData.images) { // Artist or Album
+  let images: SpotifyImage[] | undefined;
+  if ('images' in itemData) { // Artist or Album
     images = itemData.images;
+  } else if ('album' in itemData && itemData.album?.images) { // Track
+    images = itemData.album.images;
   }
 
-  // Check if images array exists and has items
-  if (images && images.length > 0) {
-    // Option 1: Always return the first image (usually largest)
-    return images[0].url;
-
-    // Option 2 (More complex): Try to find a medium image (e.g., index 1 if available)
-    // return images[1]?.url ?? images[0].url;
-  }
-
-  return undefined; // Fallback if no images found
+  if (!images || images.length === 0) return undefined;
+  // Prefer the first image (usually largest), fallback to last (smallest)
+  return images[0]?.url ?? images[images.length - 1]?.url;
 };
 
-
-// Helper to get primary text based on item type
-const getPrimaryText = (itemData?: SpotifyGridItem, defaultText = 'Select Item'): string => {
-    return itemData?.name || defaultText;
+const getPrimaryText = (itemData?: SpotifyGridItem, defaultText: string = 'Select Item'): string => {
+  if (!itemData) return defaultText;
+  return itemData.name;
 };
 
-// Helper to get secondary text based on item type
 const getSecondaryText = (itemData?: SpotifyGridItem): string => {
-    if (!itemData) return '...';
-    if ('artists' in itemData && itemData.artists) { // Track or Album
-        return itemData.artists.map(a => a.name).join(', ');
-    }
-    if ('genres' in itemData && itemData.genres && itemData.genres.length > 0) { // Artist
-        return itemData.genres.slice(0, 2).join(', '); // Show first few genres
-    }
-    return 'Details unavailable';
+  if (!itemData) return 'No selection';
+  if ('artists' in itemData && itemData.artists) { // Track or Album
+    return itemData.artists.map(a => a.name).join(', ');
+  }
+  if ('genres' in itemData && itemData.genres && itemData.genres.length > 0) { // Artist
+    // Capitalize first letter of each genre for display
+    return itemData.genres.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(', ');
+  }
+  return 'Artist'; // Fallback for Artist if no genres
 };
 
-// --- Corrected Component Name and Props Usage ---
-const MonthSlot: React.FC<MonthSlotProps> = ({ monthIndex, monthName, mode, itemType, onSlotClick, itemData, ariaLabel }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+
+const MonthSlot: React.FC<MonthSlotProps> = ({
+  monthIndex, monthName, mode, itemType, onSlotClick, itemData, ariaLabel
+}) => {
   const theme = useTheme();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handlePlayClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (itemType === 'track' && itemData && 'preview_url' in itemData) {
+    if (itemType === 'track' && itemData && 'preview_url' in itemData && itemData.preview_url) {
         console.log(`Play button clicked for ${monthName}. Preview URL: ${itemData.preview_url}`);
-        // TODO: Implement playback
+        // TODO: Implement playback (e.g., using Howler.js or Web Audio API)
+        alert(`Playing preview for: ${itemData.name}`); // Placeholder
+    } else {
+        console.log(`Play button clicked for ${monthName}, but no preview URL available.`);
     }
   };
 
   const handleImageClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     console.log(`Image area clicked for ${monthName}, triggering modal.`);
-    onSlotClick(monthIndex);
+    onSlotClick(monthIndex); // Trigger the modal opening logic passed from parent
   };
 
   const handleToggleExpand = (event: React.MouseEvent) => {
-    event.stopPropagation();
+    event.stopPropagation(); // Prevent triggering onSlotClick
     setIsExpanded(!isExpanded);
   };
 
-  // --- Data Extraction ---
   const primaryText = getPrimaryText(itemData, monthName);
   const secondaryText = itemData ? getSecondaryText(itemData) : 'No selection';
   const imageUrl = getImageUrl(itemData); // Uses the corrected helper
   const canPlay = itemType === 'track' && itemData && 'preview_url' in itemData && !!itemData.preview_url;
+
   const PlaceholderIcon = itemType === 'artist' ? PersonIcon : itemType === 'album' ? AlbumIcon : MusicNoteIcon;
 
   return (
     <Paper
-      elevation={2}
+      elevation={isExpanded ? 6 : 2} // Increase elevation when expanded
       sx={{
         aspectRatio: '1 / 1', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
         border: mode === 'leastFavorite' ? `2px solid ${theme.palette.error.light}` : `2px solid transparent`,
         transition: theme.transitions.create(['border-color', 'box-shadow']),
-        '&:hover': { boxShadow: 3 }, '&:active': { boxShadow: 1 }
+        '&:hover': { boxShadow: isExpanded ? 6 : 3 }, // Keep higher shadow on hover if expanded
+        '&:active': { boxShadow: 1 }
       }}
       role="group" aria-label={ariaLabel}
     >
@@ -113,7 +105,8 @@ const MonthSlot: React.FC<MonthSlotProps> = ({ monthIndex, monthName, mode, item
       <Box onClick={handleImageClick} sx={{
           height: '80%', width: '100%', position: 'relative', backgroundColor: 'grey.200',
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          '&:hover .fab-play': { opacity: 1 }
+          overflow: 'hidden', // Ensure image doesn't overflow
+          '&:hover .fab-play': { opacity: 1 } // Show play button on hover
         }}>
         {imageUrl ? ( <img src={imageUrl} alt={`Art for ${primaryText}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> )
          : ( <PlaceholderIcon sx={{ fontSize: '3rem', color: 'grey.400' }} /> )}
@@ -121,12 +114,12 @@ const MonthSlot: React.FC<MonthSlotProps> = ({ monthIndex, monthName, mode, item
       </Box>
 
       {/* Bottom Part (20%) */}
-      <Box onClick={handleToggleExpand} sx={{
+      <Box onClick={handleToggleExpand} sx={{ // Make entire bottom bar clickable for expand/collapse
           height: '20%', width: '100%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           backgroundColor: 'background.paper', borderTop: `1px solid ${theme.palette.divider}`, cursor: 'pointer',
           zIndex: 1, position: 'relative',
-          borderTopLeftRadius: isExpanded ? 0 : theme.shape.borderRadius,
-          borderTopRightRadius: isExpanded ? 0 : theme.shape.borderRadius,
+          borderBottomLeftRadius: isExpanded ? 0 : theme.shape.borderRadius, // Adjust radius based on expansion
+          borderBottomRightRadius: isExpanded ? 0 : theme.shape.borderRadius,
           transition: theme.transitions.create(['border-radius'], { duration: theme.transitions.duration.short }),
         }}
         aria-expanded={isExpanded} aria-controls={`item-details-${monthIndex}`}
@@ -152,7 +145,9 @@ const MonthSlot: React.FC<MonthSlotProps> = ({ monthIndex, monthName, mode, item
           sx={{
             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
             bgcolor: 'rgba(0, 0, 0, 0.85)', color: 'white', zIndex: 3,
-            p: 2, pt: 8, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            p: 2, pt: 8, // Add padding top to avoid overlap with close button
+            overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            borderRadius: theme.shape.borderRadius, // Match paper's radius
           }}
         >
           <IconButton aria-label="Close details" onClick={handleToggleExpand} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 4 }}>
@@ -162,8 +157,10 @@ const MonthSlot: React.FC<MonthSlotProps> = ({ monthIndex, monthName, mode, item
           <Typography variant="h6" gutterBottom>{primaryText}</Typography>
           <Typography variant="body2" gutterBottom>{secondaryText}</Typography>
           {itemData && 'album' in itemData && itemData.album && ( <Typography variant="body2" gutterBottom>Album: {itemData.album.name}</Typography> )}
-          {itemData && 'release_date' in itemData && ( <Typography variant="body2" gutterBottom>Released: {itemData.release_date}</Typography> )}
+          {itemData && 'release_date' in itemData && itemData.release_date && ( <Typography variant="body2" gutterBottom>Released: {itemData.release_date}</Typography> )}
+          {itemData && 'popularity' in itemData && ( <Typography variant="body2" gutterBottom>Popularity: {itemData.popularity}</Typography> )}
           <Typography variant="body2" gutterBottom>Spotify ID: {itemData?.id || 'N/A'}</Typography>
+          {/* Add more details as needed */}
           <Box sx={{ mt: 'auto', pt: 1 }}>
              <Typography variant="caption" sx={{ color: 'grey.400' }}>{monthName} Details...</Typography>
           </Box>

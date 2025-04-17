@@ -1,54 +1,126 @@
-// src/pages/Callback.tsx
-import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getVerifier } from '../features/spotify/auth';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
+import { exchangeSpotifyCode } from '@/features/api/backendApi';
+import { CircularProgress, Typography, Box, Alert } from '@mui/material';
 
 const Callback: React.FC = () => {
-  const navigate = useNavigate();
-  const effectRan = useRef(false);
+    const { isLoaded, isSignedIn, getToken } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [processingState, setProcessingState] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
 
-  useEffect(() => {
-    // Prevent running twice in StrictMode
-    if (effectRan.current === true) return;
-    effectRan.current = true;
+    useEffect(() => {
+        const processCallback = async () => {
+            const params = new URLSearchParams(location.search);
+            const code = params.get('code');
+            const error = params.get('error');
+            // Retrieve verifier from localStorage - DO NOT REMOVE YET
+            const storedVerifier = localStorage.getItem('spotify_code_verifier');
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const error = params.get('error'); // Check if Spotify returned an error
-    const verifier = getVerifier(); // Retrieve the stored verifier from localStorage
+            if (error) {
+                console.error('Spotify callback error:', error);
+                setProcessingState('error');
+                sessionStorage.setItem('spotify_auth_status', 'error');
+                sessionStorage.setItem('spotify_auth_error_details', `Spotify login failed: ${error}`);
+                // Clean up verifier if Spotify itself returned an error
+                if (storedVerifier) {
+                    localStorage.removeItem('spotify_code_verifier');
+                }
+                navigate('/', { replace: true });
+                return;
+            }
 
-    // Handle direct error from Spotify
-    if (error) {
-      console.error('Error received from Spotify callback:', error);
-      sessionStorage.setItem('spotify_auth_status', 'error');
-      sessionStorage.setItem('spotify_auth_error_details', `Spotify Error: ${error}`);
-      localStorage.removeItem('spotify_code_verifier'); // Clean up original verifier
-      navigate('/', { replace: true }); // Redirect home to show error
-      return; // Stop further processing
-    }
+            if (!isLoaded || !isSignedIn) {
+                console.log('Callback: Waiting for Clerk to load/sign in...');
+                setProcessingState('idle');
+                // Wait for Clerk, DO NOT proceed or remove verifier yet
+                return;
+            }
 
-    // Handle successful callback from Spotify
-    if (code && verifier) {
-      console.log('Spotify callback successful. Storing code and verifier for processing.');
-      // Store code and verifier temporarily in sessionStorage for processing after redirect
-      sessionStorage.setItem('spotify_pending_code', code);
-      sessionStorage.setItem('spotify_pending_verifier', verifier);
-      // Redirect back to home page (or another protected route), signaling processing is needed
-      // Using replace: true prevents this callback URL from being in the browser history
-      navigate('/?spotify_auth=pending', { replace: true });
-    } else {
-      // Handle missing code or verifier without an explicit error from Spotify
-      console.error('Authorization code or verifier missing on callback (no error param).');
-      sessionStorage.setItem('spotify_auth_status', 'error');
-      sessionStorage.setItem('spotify_auth_error_details', 'Code or verifier missing during Spotify callback.');
-      localStorage.removeItem('spotify_code_verifier'); // Clean up original verifier
-      navigate('/', { replace: true }); // Redirect home
-    }
+            if (!code || !storedVerifier) {
+                console.error('Missing code or verifier after Clerk loaded.');
+                setProcessingState('error');
+                sessionStorage.setItem('spotify_auth_status', 'error');
+                sessionStorage.setItem('spotify_auth_error_details', 'Spotify callback missing required info after Clerk load.');
+                 // Clean up verifier if it exists but code is missing
+                if (storedVerifier) {
+                    localStorage.removeItem('spotify_code_verifier');
+                }
+                navigate('/', { replace: true });
+                return;
+            }
 
-  }, [navigate]); // Dependency array
+            setProcessingState('processing');
+            console.log('Callback: Clerk ready, attempting Spotify code exchange...');
 
-  // Display a generic loading/redirecting message
-  return <div>Processing Spotify login...</div>;
+            try {
+                const jwt = await getToken();
+                if (!jwt) {
+                    // This case should be rare if isSignedIn is true, but handle defensively
+                    throw new Error("Clerk token unavailable despite being signed in.");
+                }
+
+                // REMOVE verifier just before using it or after successful use
+                const verifierToUse = storedVerifier; // Keep a reference
+                localStorage.removeItem('spotify_code_verifier'); // Clean up now
+                console.log('Callback: Removed verifier from localStorage.');
+
+                const tokenData = await exchangeSpotifyCode(code, verifierToUse, jwt);
+                console.log('Spotify token exchange successful via backend:', tokenData);
+
+                sessionStorage.setItem('spotify_access_token', tokenData.access_token);
+                // TODO: Store refresh token securely if needed
+                // sessionStorage.setItem('spotify_refresh_token', tokenData.refresh_token);
+                sessionStorage.setItem('spotify_auth_status', 'success');
+                window.dispatchEvent(new CustomEvent('spotifyAuthSuccess'));
+
+                setProcessingState('success');
+
+                navigate('/', { replace: true });
+
+            } catch (err: any) {
+                console.error("Error during Spotify token exchange in Callback:", err);
+                setProcessingState('error');
+                sessionStorage.setItem('spotify_auth_status', 'error');
+                sessionStorage.setItem('spotify_auth_error_details', err.message || 'Failed to exchange Spotify code with backend.');
+
+                // Ensure verifier is cleaned up even on error during exchange
+                if (localStorage.getItem('spotify_code_verifier')) {
+                     localStorage.removeItem('spotify_code_verifier');
+                     console.log('Callback: Removed verifier from localStorage after exchange error.');
+                }
+
+                 navigate('/', { replace: true });
+            }
+        };
+
+        processCallback();
+
+    }, [isLoaded, isSignedIn, getToken, location.search, navigate]);
+
+    return (
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="50vh">
+            {processingState === 'processing' && (
+                <>
+                    <CircularProgress />
+                    <Typography sx={{ mt: 2 }}>Processing Spotify login...</Typography>
+                </>
+            )}
+             {processingState === 'idle' && !isLoaded && (
+                <>
+                    <CircularProgress />
+                    <Typography sx={{ mt: 2 }}>Loading authentication...</Typography>
+                </>
+            )}
+             {processingState === 'idle' && isLoaded && !isSignedIn && (
+                 // This state might occur if the user somehow lands here without being logged into Clerk
+                 <Alert severity="warning">Please sign in to complete the Spotify connection.</Alert>
+             )}
+            {/* Error message is handled by redirecting and showing on HomePage */}
+            {/* Success message is handled by redirecting and showing on HomePage */}
+        </Box>
+    );
 };
 
 export default Callback;

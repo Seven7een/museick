@@ -1,15 +1,14 @@
-// src/features/spotify/spotifyApi.ts
 import {
   SpotifySearchResults,
   SpotifyTrackItem,
   SpotifyArtistItem,
   SpotifyAlbumItem,
   SpotifyUserTopItems, // Import if needed for getMyTopTracks
+  SpotifyImage, // Import SpotifyImage if needed by getImageUrl
 } from '@/types/spotify.types';
 
 const BASE_URL = 'https://api.spotify.com/v1';
 
-// --- Private Helper Function ---
 /**
  * Performs a fetch request to the Spotify API, automatically including the access token.
  * @param endpoint The specific API endpoint (e.g., '/me/top/tracks').
@@ -22,37 +21,37 @@ const _fetchSpotifyApi = async <T = any>(endpoint: string, options: RequestInit 
 
   if (!accessToken) {
     // This indicates the user needs to connect/reconnect Spotify
-    throw new Error('Spotify access token not found in session storage.');
+    console.error(`Attempted to call Spotify API endpoint ${endpoint} without access token.`);
+    // Dispatch event so UI can react (e.g., show connect button)
+    window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+    throw new Error("Spotify access token is missing. Please connect Spotify.");
   }
 
-  const url = endpoint.startsWith('https://') ? endpoint : `${BASE_URL}${endpoint}`; // Handle full URLs if needed
-
-  const defaultHeaders: HeadersInit = {
-    'Authorization': `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  };
-
-  const config: RequestInit = {
-    method: 'GET', // Default to GET
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...options.headers,
-    },
-  };
+  const url = `${BASE_URL}${endpoint}`;
+  const headers = new Headers(options.headers || {});
+  headers.set('Authorization', `Bearer ${accessToken}`);
+  // Spotify API often uses Content-Type: application/json for POST/PUT
+  if (options.body && !(options.body instanceof FormData)) {
+      headers.set('Content-Type', 'application/json');
+  }
 
   try {
-    const response = await fetch(url, config);
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
+    let isAuthError = false;
     if (!response.ok) {
-      let errorMsg = `Spotify API Error: ${response.status} ${response.statusText}`;
-      let isAuthError = response.status === 401 || response.status === 403;
+      let errorMsg = `Spotify API request failed: ${response.status} ${response.statusText}`;
+      isAuthError = response.status === 401 || response.status === 403;
       try {
         const errorBody = await response.json();
-        errorMsg = errorBody?.error?.message || errorMsg;
-      } catch (e) { /* Ignore */ }
-
-      console.error(`Spotify fetch failed for ${url}: ${errorMsg}`);
+        errorMsg += ` - ${errorBody.error?.message || JSON.stringify(errorBody)}`;
+      } catch (e) {
+        // Ignore if response body is not JSON or empty
+      }
+      console.error(`Error fetching ${url}: ${errorMsg}`);
 
       // If it's an auth error, clear the potentially invalid token
       if (isAuthError) {
@@ -79,36 +78,35 @@ const _fetchSpotifyApi = async <T = any>(endpoint: string, options: RequestInit 
     // Re-throw if it's not already the specific auth error
     if (!(error instanceof Error && error.message.includes("Spotify session is invalid"))) {
         throw error;
+    } else {
+        // If it IS the specific auth error, it's already been handled/thrown, so just re-throw it
+        throw error;
     }
-    // If it IS the specific auth error, let it propagate
-    throw error;
   }
 };
-
-
-// --- Public API Functions ---
 
 /**
  * Searches Spotify for tracks, artists, and albums.
  */
-export const searchSpotify = async (query: string, limit: number = 10): Promise<SpotifySearchResults> => {
-  const encodedQuery = encodeURIComponent(query);
-  const types = 'track,artist,album';
-  const endpoint = `/search?q=${encodedQuery}&type=${types}&limit=${limit}`;
+export const searchSpotify = async (
+  query: string,
+  types: ('track' | 'artist' | 'album')[] = ['track', 'artist', 'album'], // Default to searching all types
+  limit: number = 10 // Default limit
+): Promise<SpotifySearchResults> => {
+  const typeString = types.join(',');
+  const endpoint = `/search?q=${encodeURIComponent(query)}&type=${typeString}&limit=${limit}`;
 
   // Spotify search returns { tracks: { items: [...] }, artists: { items: [...] }, ... }
-  const data = await _fetchSpotifyApi<{
-    tracks: { items: SpotifyTrackItem[] };
-    artists: { items: SpotifyArtistItem[] };
-    albums: { items: SpotifyAlbumItem[] };
-  }>(endpoint);
+  const data = await _fetchSpotifyApi<any>(endpoint);
 
-  // Extract the items arrays, providing empty arrays as fallbacks
-  return {
-    tracks: data?.tracks?.items ?? [],
-    artists: data?.artists?.items ?? [],
-    albums: data?.albums?.items ?? [],
+  // Extract items or provide empty arrays if a type wasn't searched or returned
+  const results: SpotifySearchResults = {
+    tracks: data.tracks?.items ?? [],
+    artists: data.artists?.items ?? [],
+    albums: data.albums?.items ?? [],
   };
+
+  return results;
 };
 
 /**
@@ -126,4 +124,4 @@ export const getMyTopTracks = async (
     return data?.items ?? []; // Return the items array or empty array
 };
 
-// Add other direct Spotify API call functions here...
+// TODO: Add other direct Spotify API call functions here...

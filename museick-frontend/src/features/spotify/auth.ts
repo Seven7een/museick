@@ -32,7 +32,9 @@ export const getVerifier = (): string | null => {
 export const buildSpotifyAuthUrl = async (): Promise<string> => {
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
+  console.log("Generated verifier:", verifier); // DEBUG LOG
   saveVerifier(verifier);
+  console.log("Verifier saved to localStorage"); // DEBUG LOG
 
   // --- Add the required scope here ---
   const requestedScopes = 'user-read-private user-read-email user-top-read'; // Added user-top-read

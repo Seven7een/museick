@@ -1,9 +1,8 @@
-// src/features/spotify/SpotifySearch.tsx
-import React, { useState, SyntheticEvent, useEffect, useRef, useCallback } from 'react'; // Added useCallback
+import React, { useState, SyntheticEvent, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   TextField,
-  Button, // Keep the button
+  Button,
   Typography,
   Stack,
   CircularProgress,
@@ -18,8 +17,8 @@ import {
   Tab,
   Autocomplete,
   Paper,
-  FormControlLabel, // Import FormControlLabel
-  Checkbox,         // Import Checkbox
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   MusicNote as MusicNoteIcon,
@@ -60,13 +59,12 @@ const SpotifySearch: React.FC = () => {
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
-  const [searchAsYouTypeEnabled, setSearchAsYouTypeEnabled] = useState(true); // <-- State for the toggle
+  const [searchAsYouTypeEnabled, setSearchAsYouTypeEnabled] = useState(true);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- Core API Search Logic ---
   // Use useCallback to memoize this function
   const triggerApiSearch = useCallback(async (query: string) => {
-    if (!query || query.length < MIN_SEARCH_LENGTH) {
+    if (query.length < MIN_SEARCH_LENGTH) {
       setResults(initialResultsState);
       setHasSearched(query.length > 0);
       setError('');
@@ -77,30 +75,20 @@ const SpotifySearch: React.FC = () => {
     setLoading(true);
     setError('');
     setHasSearched(true);
-    // Don't clear results immediately here for better UX on explicit search
-    // setResults(initialResultsState);
 
     try {
-      const searchData = await searchSpotify(query);
-      setResults(searchData);
-      // Auto-select first tab with results
-      if (searchData.tracks.length > 0) setSelectedTab(0);
-      else if (searchData.artists.length > 0) setSelectedTab(1);
-      else if (searchData.albums.length > 0) setSelectedTab(2);
-      else setSelectedTab(0);
-
+      const searchResults = await searchSpotify(query, ['track', 'artist', 'album'], 10);
+      setResults(searchResults);
     } catch (err: any) {
-      console.error("Search Error:", err);
-      setError(err.message || 'Error searching Spotify');
+      console.error("Error searching Spotify:", err);
+      setError(err.message || 'Failed to search Spotify.');
       setResults(initialResultsState); // Clear results on error
     } finally {
       setLoading(false);
     }
   }, []); // Empty dependency array for useCallback
 
-  // --- Debounced Search Effect (Only runs if enabled) ---
   useEffect(() => {
-    // --- Exit early if search-as-you-type is disabled ---
     if (!searchAsYouTypeEnabled) {
       // Clear any lingering timeout if the feature is disabled
       if (debounceTimeoutRef.current) {
@@ -110,7 +98,6 @@ const SpotifySearch: React.FC = () => {
       // setLoading(false);
       return;
     }
-    // --- End feature check ---
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -131,7 +118,7 @@ const SpotifySearch: React.FC = () => {
     setHasSearched(true);
 
     debounceTimeoutRef.current = setTimeout(() => {
-      triggerApiSearch(trimmedSearchTerm); // Call the extracted search logic
+      triggerApiSearch(trimmedSearchTerm);
     }, DEBOUNCE_DELAY);
 
     return () => {
@@ -159,7 +146,7 @@ const SpotifySearch: React.FC = () => {
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !loading) {
       event.preventDefault();
-      handleExplicitSearch(); // Use the explicit search handler
+      handleExplicitSearch();
     }
   };
 
@@ -185,26 +172,26 @@ const SpotifySearch: React.FC = () => {
     if (!images || images.length === 0) {
       return undefined;
     }
-    return images[images.length - 1].url;
+    // Assuming the last image is the smallest, adjust if needed
+    return images[images.length - 1]?.url;
   };
 
-  // Helper to render a list of items for a specific tab
+  // Helper to render a list of items (Tracks, Artists, Albums)
   const renderItemList = (items: any[], renderItem: (item: any) => React.ReactNode) => {
-    // Don't show "no results" while loading new data, unless it's an explicit search
-    // This needs careful handling if loading state is shared between debounce/explicit
-    // if (loading) return null;
+    if (loading) return null; // Don't render list while loading new results
 
-    if (!items || items.length === 0) {
-      return (
-        <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-          No results found in this category.
-        </Typography>
-      );
+    if (!hasSearched) {
+      return <Typography sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>Enter a search term above.</Typography>;
     }
+
+    if (items.length === 0) {
+      return <Typography sx={{ textAlign: 'center', mt: 2, color: 'text.secondary' }}>No results found.</Typography>;
+    }
+
     return (
-      <List dense sx={{ width: '100%', bgcolor: 'background.paper', p: 0 }}>
+      <List dense component={Paper} elevation={1} sx={{ mt: 1 }}>
         {items.map((item, index) => (
-          <React.Fragment key={(item as any).id || index}>
+          <React.Fragment key={item.id}>
             {renderItem(item)}
             {index < items.length - 1 && <Divider variant="inset" component="li" />}
           </React.Fragment>
@@ -220,7 +207,7 @@ const SpotifySearch: React.FC = () => {
         Find Your Muse or Ick
       </Typography>
       {/* Input Row */}
-      <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems="stretch" sx={{ mb: 1 }}> {/* Reduced bottom margin */}
+      <Stack spacing={2} direction={{ xs: 'column', sm: 'row' }} alignItems="stretch" sx={{ mb: 1 }}>
         <Autocomplete
           freeSolo
           fullWidth
@@ -239,7 +226,7 @@ const SpotifySearch: React.FC = () => {
         />
         <Button
           variant="contained"
-          onClick={handleExplicitSearch} // Use explicit search handler
+          onClick={handleExplicitSearch}
           disabled={!searchTerm.trim() || loading}
           sx={{ flexShrink: 0, px: 3 }}
         >
@@ -247,7 +234,6 @@ const SpotifySearch: React.FC = () => {
           {loading ? <CircularProgress size={24} color="inherit" /> : 'Search'}
         </Button>
       </Stack>
-      {/* Checkbox Row */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 3 }}>
         <FormControlLabel
           control={
@@ -263,40 +249,29 @@ const SpotifySearch: React.FC = () => {
       </Box>
 
 
-      {/* Loading Indicator */}
       {loading && (
         <Box mt={4} display="flex" justifyContent="center">
           <CircularProgress />
         </Box>
       )}
 
-      {/* Error Display */}
-      {error && !loading && (
+      {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
         </Alert>
       )}
 
-      {/* Results Area with Tabs */}
-      {/* Show results if a search has been attempted AND not currently loading */}
+      {/* Results Area */}
       {hasSearched && !loading && !error && (
-         <Paper elevation={2} sx={{ mt: 3, overflow: 'hidden' }}>
+        <Box sx={{ mt: 2 }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs
-              value={selectedTab}
-              onChange={handleTabChange}
-              aria-label="Search results tabs"
-              variant="fullWidth"
-              indicatorColor="primary"
-              textColor="primary"
-            >
+            <Tabs value={selectedTab} onChange={handleTabChange} aria-label="Search results tabs" variant="fullWidth">
               <Tab icon={<MusicNoteIcon />} iconPosition="start" label={`Tracks (${results.tracks.length})`} {...a11yProps(0)} />
               <Tab icon={<PersonIcon />} iconPosition="start" label={`Artists (${results.artists.length})`} {...a11yProps(1)} />
               <Tab icon={<AlbumIcon />} iconPosition="start" label={`Albums (${results.albums.length})`} {...a11yProps(2)} />
             </Tabs>
           </Box>
 
-          {/* Tab Content */}
           {selectedTab === 0 && (
             <Box role="tabpanel" id="search-tabpanel-0" aria-labelledby="search-tab-0">
               {renderItemList(results.tracks, (track: SpotifyTrackItem) => (
@@ -319,7 +294,7 @@ const SpotifySearch: React.FC = () => {
           )}
 
           {selectedTab === 1 && (
-             <Box role="tabpanel" id="search-tabpanel-1" aria-labelledby="search-tab-1">
+            <Box role="tabpanel" id="search-tabpanel-1" aria-labelledby="search-tab-1">
               {renderItemList(results.artists, (artist: SpotifyArtistItem) => (
                 <ListItem
                   component="a"
@@ -328,19 +303,16 @@ const SpotifySearch: React.FC = () => {
                   rel="noopener noreferrer"
                 >
                   <ListItemAvatar>
-                    <Avatar src={getImageUrl(artist.images)} alt={artist.name} />
+                    <Avatar variant="circular" src={getImageUrl(artist.images)} alt={artist.name} />
                   </ListItemAvatar>
-                  <ListItemText
-                    primary={artist.name}
-                    secondary={artist.genres?.slice(0, 3).join(', ')}
-                  />
+                  <ListItemText primary={artist.name} />
                 </ListItem>
               ))}
             </Box>
           )}
 
           {selectedTab === 2 && (
-             <Box role="tabpanel" id="search-tabpanel-2" aria-labelledby="search-tab-2">
+            <Box role="tabpanel" id="search-tabpanel-2" aria-labelledby="search-tab-2">
               {renderItemList(results.albums, (album: SpotifyAlbumItem) => (
                 <ListItem
                   component="a"
@@ -353,22 +325,14 @@ const SpotifySearch: React.FC = () => {
                   </ListItemAvatar>
                   <ListItemText
                     primary={album.name}
-                    secondary={`${album.artists.map((artist) => artist.name).join(', ')} (${album.release_date?.substring(0, 4)})`}
+                    secondary={album.artists.map((artist) => artist.name).join(', ')}
                   />
                 </ListItem>
               ))}
             </Box>
           )}
-        </Paper>
+        </Box>
       )}
-
-       {/* Message when search term is too short */}
-       {searchTerm.trim().length > 0 && searchTerm.trim().length < MIN_SEARCH_LENGTH && !loading && (
-         <Typography sx={{ mt: 2, textAlign: 'center', color: 'text.secondary' }}>
-           Keep typing to search... (min {MIN_SEARCH_LENGTH} characters)
-         </Typography>
-       )}
-
     </Box>
   );
 };
