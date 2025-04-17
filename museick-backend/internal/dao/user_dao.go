@@ -2,8 +2,8 @@ package dao
 
 import (
 	"context"
-	"log"
 	"fmt"
+	"log"
 
 	"github.com/seven7een/museick/museick-backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,7 +15,7 @@ import (
 type UserDAO interface {
 	FindBySub(ctx context.Context, sub string) (*models.User, error)
 	Create(ctx context.Context, user *models.User) error
-	// Add other methods like Update, Delete if needed
+	// TODO: Add other methods like Update, Delete if needed
 }
 
 // userDAOImpl implements the UserDAO interface using MongoDB.
@@ -61,7 +61,7 @@ func (dao *userDAOImpl) FindBySub(ctx context.Context, sub string) (*models.User
 
 // Create inserts a new user document into the database.
 func (dao *userDAOImpl) Create(ctx context.Context, user *models.User) error {
-	// Consider adding CreatedAt/UpdatedAt timestamps here if needed in the model
+	// TODO: Consider adding CreatedAt/UpdatedAt timestamps here if needed in the model
 	_, err := dao.collection.InsertOne(ctx, user)
 	if err != nil {
 		// Handle potential duplicate key error if index creation failed but constraint exists
