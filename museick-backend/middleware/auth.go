@@ -1,52 +1,112 @@
 package middleware
 
 import (
+	"context" // Added context import (might be needed if you uncomment session check)
+	"fmt"     // Added fmt import (might be needed if you uncomment session check)
+	"log"
 	"net/http"
+	"strings"
+	"time" // Added time import (might be needed if you uncomment session check)
 
+	"github.com/clerkinc/clerk-sdk-go/clerk"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5" // Ensure this package is downloaded via 'go mod tidy'
+	"github.com/seven7een/museick/museick-backend/initializers"
 )
 
-// VerifyClerkSession verifies that the user's Clerk session is valid.
-func VerifyClerkSession() gin.HandlerFunc {
+// ClerkClientKey is the key used to store the Clerk client in the Gin context.
+const ClerkClientKey = "clerkClient"
+
+// ClerkClaimsKey is the key used to store the validated claims in the Gin context.
+const ClerkClaimsKey = "clerkClaims"
+
+// ClerkUserIDKey is the key used to store the user's sub (subject) ID in the Gin context.
+const ClerkUserIDKey = "userID"
+
+// SetupClerk initializes the Clerk client and adds it to the context.
+func SetupClerk() gin.HandlerFunc {
+	config := initializers.GetConfig()
+	if config.ClerkSecretKey == "" {
+		log.Fatal("❌ Clerk Secret Key not configured in environment variables (CLERK_SECRET_KEY)")
+	}
+
+	client, err := clerk.NewClient(config.ClerkSecretKey)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize Clerk client: %v", err)
+	}
+	log.Println("✅ Clerk client initialized successfully.")
+
 	return func(c *gin.Context) {
-		// TODO: Placeholder for Clerk session verification logic
-		// You can replace this with actual logic using Clerk SDK or your session management system
-		// For example, you may check a cookie or a session header here.
-		if !isValidClerkSession(c) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
-			return
-		}
+		c.Set(ClerkClientKey, client)
 		c.Next()
 	}
 }
 
-// AttachUserFromClerk attaches the user to the context based on Clerk session
-func AttachUserFromClerk() gin.HandlerFunc {
+// AuthenticateClerkJWT validates the Clerk JWT from the Authorization header.
+func AuthenticateClerkJWT() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// TODO: Fetch the user from Clerk based on session or token
-		userID := getUserIDFromClerkSession(c) // Replace this with actual logic
+		clerkClientValue, exists := c.Get(ClerkClientKey)
+		if !exists {
+			log.Println("❌ Clerk client not found in context. Ensure SetupClerk middleware runs first.")
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server configuration error"})
+			return
+		}
+		client, ok := clerkClientValue.(clerk.Client)
+		if !ok {
+			log.Println("❌ Invalid Clerk client type in context.")
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server configuration error"})
+			return
+		}
 
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			return
+		}
+
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
+			return
+		}
+		sessionToken := parts[1]
+
+		sessClaims, err := client.VerifyToken(sessionToken)
+		if err != nil {
+			log.Printf("⚠️ Clerk token verification failed: %v\n", err)
+
+			// Check if the error is specifically a JWT validation error
+			// This line requires 'go mod tidy' to have run successfully
+			if tokenErr, ok := err.(*jwt.ValidationError); ok && tokenErr.Is(jwt.ErrTokenExpired) {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
+			} else {
+				// Handle other verification errors (invalid signature, etc.)
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			}
+			return
+		}
+
+		// Optional: Check if session is active via Clerk API
+		// session, err := client.Sessions().Read(sessClaims.SessionID)
+		// if err != nil || session.Status != clerk.SessionStatusActive {
+		//  log.Printf("⚠️ Clerk session %s is not active or lookup failed: %v\n", sessClaims.SessionID, err)
+		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Session is not active"})
+		// 	return
+		// }
+
+		userID := sessClaims.Subject
 		if userID == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-			c.Abort()
+			log.Println("❌ Valid Clerk token is missing 'sub' (Subject) claim.")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
 			return
 		}
 
-		// You can retrieve the user from DB here if needed
-		c.Set("userID", userID)
+		c.Set(ClerkClaimsKey, sessClaims)
+		c.Set(ClerkUserIDKey, userID)
+
+		// Log successful authentication (optional)
+		// log.Printf("✅ User %s authenticated successfully.\n", userID)
+
 		c.Next()
 	}
-}
-
-// Placeholder function to simulate checking Clerk session validity
-func isValidClerkSession(c *gin.Context) bool {
-	// TODO: Implement the actual check (e.g., checking the Clerk JWT or session cookie)
-	return true
-}
-
-// Placeholder function to simulate fetching the user ID from Clerk session
-func getUserIDFromClerkSession(c *gin.Context) string {
-	// TODO: Implement the actual logic to get the user ID from Clerk's session (e.g., Clerk JWT)
-	return "sample-user-id" // Example user ID
 }

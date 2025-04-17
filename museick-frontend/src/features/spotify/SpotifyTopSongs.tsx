@@ -1,116 +1,56 @@
 // src/features/spotify/SpotifyTopSongs.tsx
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Typography,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  CircularProgress,
-  Alert,
+  Box, Typography, List, ListItem, ListItemText, ListItemAvatar,
+  Avatar, CircularProgress, Alert,
 } from '@mui/material';
+import { SpotifyTrackItem } from '@/types/spotify.types'; // Import correct type
+import { getMyTopTracks } from '@/features/spotify/spotifyApi'; // Import API function
 
-// Define the structure of a Spotify track item based on the API response
-interface SpotifyTrack {
-  id: string;
-  name: string;
-  artists: { name: string }[];
-  album: {
-    images: { url: string; height: number; width: number }[];
-  };
-  external_urls: {
-    spotify: string;
-  };
-}
+// Removed internal SpotifyTrack interface, use the one from types
 
 const SpotifyTopSongs: React.FC = () => {
-  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([]);
+  const [topTracks, setTopTracks] = useState<SpotifyTrackItem[]>([]); // Use imported type
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  // No need for local accessToken state anymore
 
-  // Effect to retrieve the token from sessionStorage on component mount
+  // Effect to fetch top tracks
   useEffect(() => {
-    const token = sessionStorage.getItem('spotify_access_token');
-    if (token) {
-      setAccessToken(token);
-    } else {
-      // Optional: Handle case where token is not found immediately
-      console.log("Spotify access token not found in sessionStorage.");
-      // Might want to set an error or display a message prompting login
-      // setError("Please log in with Spotify to see your top tracks.");
-    }
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-  // Effect to fetch top tracks when the access token is available
-  useEffect(() => {
-    if (!accessToken) {
-      return; // Don't fetch if we don't have a token
+    // Check if token exists before attempting fetch (optional, API function also checks)
+    const tokenExists = !!sessionStorage.getItem('spotify_access_token');
+    if (!tokenExists) {
+        // Don't try to fetch, maybe show a specific message or rely on API error
+        // setError("Connect Spotify to see top tracks."); // Example
+        return;
     }
 
-    const fetchTopTracks = async () => {
+    const fetchTracks = async () => {
       setLoading(true);
-      setError(null); // Clear previous errors
-
+      setError(null);
       try {
-        // Use the fetch logic adapted from the Spotify example
-        const endpoint = 'v1/me/top/tracks?time_range=long_term&limit=5';
-        const method = 'GET';
-
-        const res = await fetch(`https://api.spotify.com/${endpoint}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`, // Use the token from state
-          },
-          method,
-        });
-
-        if (!res.ok) {
-          // Handle non-successful responses (e.g., 401 Unauthorized, 403 Forbidden)
-          let errorMsg = `Spotify API Error: ${res.status} ${res.statusText}`;
-          try {
-            const errorBody = await res.json();
-            errorMsg = errorBody?.error?.message || errorMsg;
-          } catch (e) {
-            // Ignore if error body parsing fails
-          }
-          throw new Error(errorMsg);
-        }
-
-        const data = await res.json();
-
-        if (!data.items) {
-          throw new Error("Invalid response structure from Spotify API");
-        }
-
-        setTopTracks(data.items as SpotifyTrack[]);
-
+        // --- Call API Function ---
+        const tracks = await getMyTopTracks('long_term', 5); // Use desired parameters
+        setTopTracks(tracks);
       } catch (err: any) {
         console.error("Error fetching top tracks:", err);
+        // Error message is now more specific if it's an auth error from the API helper
         setError(err.message || 'Failed to fetch top tracks from Spotify.');
-        // Optional: Clear the potentially invalid token if unauthorized
-        if (err.message?.includes('401')) {
-           sessionStorage.removeItem('spotify_access_token');
-           setAccessToken(null); // Clear token state
-           setError("Your Spotify session expired. Please log in again.");
-        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTopTracks();
+    fetchTracks();
 
-  }, [accessToken]); // Re-run this effect if the accessToken changes
+    // No dependency needed here if we only fetch once on mount when token exists
+    // If you wanted it to refetch if the token somehow changed *during* the session
+    // (unlikely with sessionStorage), you might add a dependency or trigger.
+  }, []); // Runs once on mount (if token exists)
 
   // --- Rendering Logic ---
 
-  if (!accessToken && !loading && !error) {
-    // Optionally render nothing or a prompt if the user isn't logged in via Spotify
-    // return <Typography>Log in with Spotify to view your top tracks.</Typography>;
-    return null; // Render nothing if no token and no loading/error state
-  }
+  // Removed initial check for accessToken state
 
   if (loading) {
     return (
@@ -122,33 +62,34 @@ const SpotifyTopSongs: React.FC = () => {
   }
 
   if (error) {
+    // The error might now be "Your Spotify session is invalid..."
     return <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>;
   }
 
-  if (topTracks.length === 0) {
-    // Handle case where user might have no top tracks or data isn't loaded yet
+  if (!loading && topTracks.length === 0) {
+    // Added !loading check for clarity
     return <Typography sx={{ my: 2, textAlign: 'center' }}>No top tracks found or data is still loading.</Typography>;
   }
 
   return (
     <Box sx={{ my: 4 }}>
       <Typography variant="h5" component="h2" gutterBottom align="center">
-        Your Top Spotify Tracks
+        Your Top Spotify Tracks (Last ~Year)
       </Typography>
       <List>
         {topTracks.map((track) => (
           <ListItem
             key={track.id}
-            component="a" // Render as an anchor tag
-            href={track.external_urls.spotify} // Link to the track on Spotify
-            target="_blank" // Open in new tab
-            rel="noopener noreferrer" // Security best practice
-            sx={{ mb: 1, bgcolor: 'action.hover', borderRadius: 1 }} // Add some styling
+            component="a"
+            href={track.external_urls.spotify}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ mb: 1, bgcolor: 'action.hover', borderRadius: 1 }}
           >
             <ListItemAvatar>
-              {/* Use the smallest album art, usually the last in the array */}
               <Avatar
                 variant="square"
+                // Use correct path: track.album.images
                 src={track.album.images[track.album.images.length - 1]?.url}
                 alt={track.name}
               />

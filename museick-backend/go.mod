@@ -3,8 +3,10 @@ module github.com/seven7een/museick/museick-backend
 go 1.24.1
 
 require (
+	github.com/clerkinc/clerk-sdk-go v1.49.1
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/pressly/goose/v3 v3.24.1
 	github.com/spf13/viper v1.20.0
 	github.com/swaggo/files v1.0.1
@@ -21,6 +23,7 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.0.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/spec v0.21.0 // indirect

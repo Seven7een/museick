@@ -1,57 +1,59 @@
 package handlers
 
 import (
-	"fmt"
+	"log"
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/services"
-	"github.com/seven7een/museick/museick-backend/internal/models"
+	"github.com/seven7een/museick/museick-backend/middleware" // For ClerkUserIDKey
 )
 
+// UserHandler handles HTTP requests related to users.
 type UserHandler struct {
-	UserService *services.UserService
+	userService services.UserService
 }
 
-func NewUserHandler(s *services.UserService) *UserHandler {
-	return &UserHandler{
-		UserService: s,
-	}
+// NewUserHandler creates a new UserHandler.
+func NewUserHandler(userService services.UserService) *UserHandler {
+	return &UserHandler{userService: userService}
 }
 
-// CreateUser handles user creation
-func (h *UserHandler) CreateUser(c *gin.Context) {
-	var newUser models.User
-	if err := c.ShouldBindJSON(&newUser); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user data"})
+// SyncUser handles the POST /api/users/sync request.
+// It retrieves the user ID (sub) from the context (set by middleware)
+// and calls the user service to ensure the user exists in the database.
+func (h *UserHandler) SyncUser(c *gin.Context) {
+	// Retrieve user ID (sub) from context set by AuthenticateClerkJWT middleware
+	userIDValue, exists := c.Get(middleware.ClerkUserIDKey)
+	if !exists {
+		log.Println("Error in SyncUser handler: Clerk User ID not found in context.")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User identifier missing"})
 		return
 	}
 
-	// Retrieve the user's `sub` (unique ID from Clerk)
-	sub := c.GetString("sub")
+	userID, ok := userIDValue.(string)
+	if !ok || userID == "" {
+		log.Println("Error in SyncUser handler: Invalid Clerk User ID type or empty in context.")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user identifier"})
+		return
+	}
 
-	createdUser, err := h.UserService.CreateUser(c, sub, newUser.Username)
+	// Call the service layer to perform the sync logic
+	err := h.userService.SyncUser(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error creating user: %s", err)})
+		// Log the service error
+		log.Printf("Error syncing user with sub '%s': %v\n", userID, err)
+		// Return a generic server error to the client
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to synchronize user data"})
 		return
 	}
 
-	c.JSON(http.StatusOK, createdUser)
+	// Sync successful (user exists or was created)
+	// Return 204 No Content as there's nothing specific to return in the body
+	c.Status(http.StatusNoContent)
 }
 
-// GetUser handles fetching a user by their `sub`
-func (h *UserHandler) GetUser(c *gin.Context) {
-	// Retrieve the `sub` from context
-	sub := c.GetString("sub")
-	if sub == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User `sub` is required"})
-		return
-	}
-
-	user, err := h.UserService.GetUserBySub(c, sub)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error fetching user: %s", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
+// --- Add other user handlers (CreateUser, GetUser) here if needed ---
+// Example:
+// func (h *UserHandler) CreateUser(c *gin.Context) { ... }
+// func (h *UserHandler) GetUser(c *gin.Context) { ... }

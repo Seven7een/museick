@@ -11,7 +11,7 @@ import (
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/handlers"
 	"github.com/seven7een/museick/museick-backend/internal/services"
-	"github.com/seven7een/museick/museick-backend/middleware"
+	"github.com/seven7een/museick/museick-backend/middleware" // Correct import
 
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -43,16 +43,16 @@ func main() {
 
 	// DAOs
 	userDAO := dao.NewUserDAO(client, config.MongoDBName, "users")
-	songDAO := dao.NewSongDAO(client, config.MongoDBName, "songs")
+	// songDAO := dao.NewSongDAO(client, config.MongoDBName, "songs") // Assuming this exists
 
 	// Services
 	userService := services.NewUserService(userDAO)
-	songService := services.NewSongService(songDAO)
+	// songService := services.NewSongService(songDAO) // Assuming this exists
 	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService)
-	songHandler := handlers.NewSongHandler(songService)
+	// songHandler := handlers.NewSongHandler(songService) // Assuming this exists
 	spotifyHandler := handlers.NewSpotifyHandler(spotifyService)
 
 	log.Printf("DEBUG: Configuring CORS with AllowOrigins: %v", []string{config.ClientOrigin})
@@ -67,36 +67,36 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// --- Setup Clerk Client Middleware Globally ---
+	server.Use(middleware.SetupClerk())
+
 	// Router setup
 	router := server.Group("/")
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "Welcome to Museick API"})
 	})
+	router.GET("/ping", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, "pong") })
+	router.GET("/db_health", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, gin.H{"status": "MongoDB connection healthy"}) })
 
-	router.GET("/ping", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, "pong")
-	})
-
-	router.GET("/db_health", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"status": "MongoDB connection healthy"})
-	})
-
-	// API Routes
+	// API Routes - Protected by Clerk JWT Authentication
 	api := router.Group("/api")
 	{
-		api.Use(middleware.VerifyClerkSession())
-		api.Use(middleware.AttachUserFromClerk())
+		// --- Apply Authentication Middleware ---
+		api.Use(middleware.AuthenticateClerkJWT()) // Use the real authentication middleware
 
 		// User Routes
-		api.POST("/users", userHandler.CreateUser)
-		api.GET("/users/:id", userHandler.GetUser)
+		// api.POST("/users", userHandler.CreateUser) // Keep if needed for other purposes
+		// api.GET("/users/:id", userHandler.GetUser) // Keep if needed
 
-		// Song Routes
-		api.POST("/songs", songHandler.CreateSong)
-		api.GET("/songs/:id", songHandler.GetSong)
-		api.GET("/songs", songHandler.ListSongs)
+		// --- Add User Sync Route ---
+		api.POST("/users/sync", userHandler.SyncUser) // New route for syncing
 
-		// Spotify Routes
+		// Song Routes (Assuming they exist and need auth)
+		// api.POST("/songs", songHandler.CreateSong)
+		// api.GET("/songs/:id", songHandler.GetSong)
+		// api.GET("/songs", songHandler.ListSongs)
+
+		// Spotify Routes (Need auth because they interact with user-specific data/tokens)
 		api.POST("/spotify/exchange-code", spotifyHandler.ExchangeCodeForToken)
 		api.POST("/spotify/refresh-token", spotifyHandler.RefreshAccessToken)
 	}

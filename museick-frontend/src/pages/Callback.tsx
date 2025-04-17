@@ -1,90 +1,54 @@
 // src/pages/Callback.tsx
-
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getVerifier } from '../features/spotify/auth';
 
 const Callback: React.FC = () => {
   const navigate = useNavigate();
-  const effectRan = useRef(false); // Prevent effect from running twice in StrictMode
+  const effectRan = useRef(false);
 
   useEffect(() => {
-    // Ensure the effect runs only once, even in React StrictMode
-    if (effectRan.current === true) {
-       return;
-    }
+    // Prevent running twice in StrictMode
+    if (effectRan.current === true) return;
+    effectRan.current = true;
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    const verifier = getVerifier(); // Retrieve the code verifier stored earlier
+    const error = params.get('error'); // Check if Spotify returned an error
+    const verifier = getVerifier(); // Retrieve the stored verifier from localStorage
 
-    if (code && verifier) {
-      // Exchange the authorization code for an access token via the backend
-      fetch('http://localhost:8080/api/spotify/exchange-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: code,
-          code_verifier: verifier
-        }),
-      })
-        .then((response) => {
-          // Handle non-successful HTTP responses
-          if (!response.ok) {
-            // Try to parse error details from backend response body
-            return response.json().then(errData => {
-              throw new Error(`Backend token exchange failed: ${errData.error || response.statusText} (Status: ${response.status})`);
-            });
-          }
-          // Parse successful response body as JSON
-          return response.json();
-        })
-        .then((data) => {
-          // Success: Token received from backend
-          localStorage.removeItem('spotify_code_verifier'); // Clean up verifier
-          console.log('Received token data from backend:', data);
-          sessionStorage.setItem('spotify_access_token', data.access_token); // Store token
-
-          // Store success status for Snackbar display on the home page
-          sessionStorage.setItem('spotify_auth_status', 'success');
-
-          // Dispatch a custom event to notify other components (like Navbar) immediately
-          window.dispatchEvent(new CustomEvent('spotifyAuthSuccess'));
-
-          // Navigate back to the home page
-          navigate('/');
-        })
-        .catch((error) => {
-          // Handle errors during the fetch/exchange process
-          console.error('Error during token exchange process:', error);
-
-          // Store error status for Snackbar display on the home page
-          sessionStorage.setItem('spotify_auth_status', 'error');
-          // Optionally store the specific error message if needed for the snackbar
-          // sessionStorage.setItem('spotify_auth_error', error.message);
-
-          // Navigate home even on error to show the error message
-          navigate('/');
-        });
-    } else {
-      // Handle cases where the code or verifier is missing from the callback URL
-      console.error('Authorization code or verifier missing on callback.');
-      sessionStorage.setItem('spotify_auth_status', 'error'); // Mark as error
-      // sessionStorage.setItem('spotify_auth_error', 'Authorization code or verifier missing.');
-      navigate('/'); // Navigate home to potentially show an error
+    // Handle direct error from Spotify
+    if (error) {
+      console.error('Error received from Spotify callback:', error);
+      sessionStorage.setItem('spotify_auth_status', 'error');
+      sessionStorage.setItem('spotify_auth_error_details', `Spotify Error: ${error}`);
+      localStorage.removeItem('spotify_code_verifier'); // Clean up original verifier
+      navigate('/', { replace: true }); // Redirect home to show error
+      return; // Stop further processing
     }
 
-    // Cleanup function for the effect (runs on unmount or before re-run)
-    return () => {
-      effectRan.current = true; // Mark effect as having run
-    };
+    // Handle successful callback from Spotify
+    if (code && verifier) {
+      console.log('Spotify callback successful. Storing code and verifier for processing.');
+      // Store code and verifier temporarily in sessionStorage for processing after redirect
+      sessionStorage.setItem('spotify_pending_code', code);
+      sessionStorage.setItem('spotify_pending_verifier', verifier);
+      // Redirect back to home page (or another protected route), signaling processing is needed
+      // Using replace: true prevents this callback URL from being in the browser history
+      navigate('/?spotify_auth=pending', { replace: true });
+    } else {
+      // Handle missing code or verifier without an explicit error from Spotify
+      console.error('Authorization code or verifier missing on callback (no error param).');
+      sessionStorage.setItem('spotify_auth_status', 'error');
+      sessionStorage.setItem('spotify_auth_error_details', 'Code or verifier missing during Spotify callback.');
+      localStorage.removeItem('spotify_code_verifier'); // Clean up original verifier
+      navigate('/', { replace: true }); // Redirect home
+    }
 
-  }, [navigate]); // Include navigate in dependency array as per React hooks linting rules
+  }, [navigate]); // Dependency array
 
-  // Display a loading message while the code exchange happens
-  return <div>Loading... Exchanging authorization code...</div>;
+  // Display a generic loading/redirecting message
+  return <div>Processing Spotify login...</div>;
 };
 
 export default Callback;

@@ -2,41 +2,78 @@ package dao
 
 import (
 	"context"
+	"log"
 	"fmt"
 
 	"github.com/seven7een/museick/museick-backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type UserDAO struct {
+// UserDAO defines the interface for user data access operations.
+type UserDAO interface {
+	FindBySub(ctx context.Context, sub string) (*models.User, error)
+	Create(ctx context.Context, user *models.User) error
+	// Add other methods like Update, Delete if needed
+}
+
+// userDAOImpl implements the UserDAO interface using MongoDB.
+type userDAOImpl struct {
 	collection *mongo.Collection
 }
 
-func NewUserDAO(client *mongo.Client, dbName, collectionName string) *UserDAO {
+// NewUserDAO creates a new instance of UserDAO.
+func NewUserDAO(client *mongo.Client, dbName string, collectionName string) UserDAO {
 	collection := client.Database(dbName).Collection(collectionName)
-	return &UserDAO{collection}
-}
-
-// InsertUser creates a new user entry
-func (dao *UserDAO) InsertUser(ctx context.Context, user *models.User) error {
-	_, err := dao.collection.InsertOne(ctx, user)
-	if err != nil {
-		return fmt.Errorf("error inserting user: %v", err)
+	// Create index on 'sub' field for efficient lookups if it doesn't exist
+	indexModel := mongo.IndexModel{
+		Keys:    bson.M{"sub": 1},
+		Options: options.Index().SetUnique(true),
 	}
-	return nil
+	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
+	if err != nil {
+		// Log the error but don't necessarily fail startup, maybe index exists
+		log.Printf("⚠️ Could not create index on users collection 'sub' field: %v\n", err)
+	} else {
+		log.Println("✅ Index on users collection 'sub' field ensured.")
+	}
+	return &userDAOImpl{collection: collection}
 }
 
-// GetUserBySub retrieves a user by their `sub`
-func (dao *UserDAO) GetUserBySub(ctx context.Context, sub string) (*models.User, error) {
+// FindBySub finds a user by their Clerk subject ID.
+// Returns mongo.ErrNoDocuments if the user is not found.
+func (dao *userDAOImpl) FindBySub(ctx context.Context, sub string) (*models.User, error) {
 	var user models.User
 	filter := bson.M{"sub": sub}
+
 	err := dao.collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, nil
+			return nil, mongo.ErrNoDocuments // Explicitly return the specific error
 		}
-		return nil, fmt.Errorf("error finding user by sub: %v", err)
+		log.Printf("Error finding user by sub '%s': %v\n", sub, err)
+		return nil, fmt.Errorf("error finding user: %w", err) // Wrap internal error
 	}
+
 	return &user, nil
+}
+
+// Create inserts a new user document into the database.
+func (dao *userDAOImpl) Create(ctx context.Context, user *models.User) error {
+	// Consider adding CreatedAt/UpdatedAt timestamps here if needed in the model
+	_, err := dao.collection.InsertOne(ctx, user)
+	if err != nil {
+		// Handle potential duplicate key error if index creation failed but constraint exists
+		if mongo.IsDuplicateKeyError(err) {
+			log.Printf("Attempted to create duplicate user with sub '%s'\n", user.Sub)
+			// Usually, for sync, finding the existing user is enough, so no error needed here.
+			// If Create is called outside sync, you might return a specific error.
+			return nil // Or a custom duplicate error
+		}
+		log.Printf("Error creating user with sub '%s': %v\n", user.Sub, err)
+		return fmt.Errorf("error creating user: %w", err) // Wrap internal error
+	}
+	log.Printf("Successfully created user with sub '%s'\n", user.Sub)
+	return nil
 }
