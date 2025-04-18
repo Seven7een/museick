@@ -24,15 +24,6 @@ func NewSelectionHandler(svc *services.UserSelectionService) *SelectionHandler {
 	return &SelectionHandler{selectionService: svc}
 }
 
-// CreateSelectionRequest defines the expected JSON body for POST /api/selections
-type CreateSelectionRequest struct {
-	SpotifyID   string                 `json:"spotify_id" binding:"required"`
-	SpotifyType models.SpotifyItemType `json:"spotify_type" binding:"required"`   // "song", "album", or "artist"
-	Role        models.SelectionRole   `json:"selection_role" binding:"required"` // "muse_candidate" or "ick_candidate"
-	MonthYear   string                 `json:"month_year" binding:"required"`     // "YYYY-MM"
-	Notes       string                 `json:"notes"`                             // Optional
-}
-
 // CreateSelection handles POST /api/selections
 // @Summary Add a selection candidate
 // @Description Adds a Spotify item (song, album, artist) to the user's candidate list (Muse or Ick) for a specific month.
@@ -40,7 +31,7 @@ type CreateSelectionRequest struct {
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer token"
-// @Param selection body CreateSelectionRequest true "Candidate Selection Data"
+// @Param selection body models.CreateSelectionRequest true "Candidate Selection Data" // Specify package
 // @Success 201 {object} models.UserSelection "Selection candidate created successfully"
 // @Success 200 {object} models.UserSelection "Selection already existed"
 // @Failure 400 {object} gin.H "Invalid input format or data"
@@ -49,7 +40,7 @@ type CreateSelectionRequest struct {
 // @Router /api/selections [post]
 // @Security BearerAuth
 func (h *SelectionHandler) CreateSelection(c *gin.Context) {
-	var request CreateSelectionRequest
+	var request models.CreateSelectionRequest // Use models.CreateSelectionRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format: " + err.Error()})
 		return

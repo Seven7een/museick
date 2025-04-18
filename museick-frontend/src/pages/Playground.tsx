@@ -14,9 +14,9 @@ const Playground: React.FC = () => {
       </Typography>
 
       <Typography variant="h4" component="h2" gutterBottom>Track Selection Grids</Typography>
-      <YearlySelectionGrid mode="muse" itemType="song" year={currentYear} />
+      <YearlySelectionGrid mode="muse" itemType="track" year={currentYear} /> 
       <Divider sx={{ my: 5 }} />
-      <YearlySelectionGrid mode="ick" itemType="song" year={currentYear} />
+      <YearlySelectionGrid mode="ick" itemType="track" year={currentYear} /> 
       <Divider sx={{ my: 5 }} />
 
       <Typography variant="h4" component="h2" gutterBottom>Artist Selection Grid</Typography>

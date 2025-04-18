@@ -95,4 +95,4 @@ export type SpotifyGridItem = SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbu
 
 export type GridMode = 'muse' | 'ick';
 
-export type GridItemType = 'song' | 'artist' | 'album';
+export type GridItemType = 'track' | 'artist' | 'album'; // Changed 'song' to 'track'

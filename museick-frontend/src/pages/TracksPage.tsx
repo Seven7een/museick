@@ -7,7 +7,7 @@ const TracksPage: React.FC = () => {
 
   return (
     <SelectionPageLayout 
-      itemType="song" 
+      itemType="track" // Changed from "song"
       year={currentYear} 
       pageTitle="Track Selection"
     />

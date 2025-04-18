@@ -49,12 +49,12 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
         const monthYear = `${year}-${month}`;
         try {
           const selections = await listSelectionsForMonth(monthYear);
-          const selectedEntry = selections.find(sel => sel.selection_role === targetSelectedRole && sel.spotify_type === itemType);
+          // Use updated field names for filtering
+          const selectedEntry = selections.find(sel => sel.selection_role === targetSelectedRole && sel.item_type === itemType);
 
           if (selectedEntry) {
-            // Map 'song' to 'track' for Spotify API call
-            const spotifyType = selectedEntry.spotify_type === 'song' ? 'track' : selectedEntry.spotify_type;
-            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_id, spotifyType);
+            // itemType prop already matches the required type ('track', 'album', 'artist') for getSpotifyItemDetails
+            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_item_id, itemType); // Use spotify_item_id and itemType
             // Augment itemDetails with selection info
             itemDetails.selectionId = selectedEntry.id;
             itemDetails.selectionRole = selectedEntry.selection_role;

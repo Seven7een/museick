@@ -11,8 +11,8 @@ export type SelectionRole =
 export interface UserSelection {
   id: string; // MongoDB ObjectID as string
   user_id: string;
-  spotify_id: string;
-  spotify_type: GridItemType; // Corrected type usage
+  spotify_item_id: string; // Renamed from spotify_id
+  item_type: GridItemType; // Renamed from spotify_type, uses 'track', 'album', 'artist'
   selection_role: SelectionRole;
   month_year: string; // "YYYY-MM"
   added_at: string; // ISO Date string

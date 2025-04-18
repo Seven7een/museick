@@ -70,16 +70,16 @@ func main() {
 	// --- Dependency Injection ---
 	// Core DAOs
 	userDAO := dao.NewUserDAO(client, config.MongoDBName, "users")
-	spotifySongDAO := dao.NewSpotifySongDAO(client, config.MongoDBName, "spotify_songs") // Renamed
+	spotifyTrackDAO := dao.NewSpotifyTrackDAO(client, config.MongoDBName, "spotify_tracks") // Use Track DAO
 	spotifyAlbumDAO := dao.NewSpotifyAlbumDAO(client, config.MongoDBName, "spotify_albums")
 	spotifyArtistDAO := dao.NewSpotifyArtistDAO(client, config.MongoDBName, "spotify_artists")
 	userSelectionDAO := dao.NewUserSelectionDAO(client, config.MongoDBName, "user_selections")
 
 	// Core Services
 	userService := services.NewUserService(userDAO)
-	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)                              // Handles basic auth, token exchange
-	spotifySyncService := services.NewSpotifySyncService(spotifySongDAO, spotifyAlbumDAO, spotifyArtistDAO /*, spotifyService */) // Use SongDAO
-	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService)                // Pass DAOs and other services
+	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)                                // Handles basic auth, token exchange
+	spotifySyncService := services.NewSpotifySyncService(spotifyTrackDAO, spotifyAlbumDAO, spotifyArtistDAO /*, spotifyService */) // Inject Track DAO
+	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService)                 // Pass DAOs and other services
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService)
@@ -93,7 +93,7 @@ func main() {
 	server.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{config.ClientOrigin}, // Allow frontend origin
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "x-spotify-token"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

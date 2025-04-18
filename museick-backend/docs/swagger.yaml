@@ -3,8 +3,21 @@ definitions:
   gin.H:
     additionalProperties: {}
     type: object
-  handlers.CreateSelectionRequest:
+  handlers.UpdateSelectionRequest:
     properties:
+      notes:
+        description: Pointer
+        type: string
+      selection_role:
+        allOf:
+        - $ref: '#/definitions/models.SelectionRole'
+        description: Pointer to distinguish between not provided and empty string
+    type: object
+  models.CreateSelectionRequest:
+    properties:
+      item_type:
+        description: '"track", "album", or "artist"'
+        type: string
       month_year:
         description: '"YYYY-MM"'
         type: string
@@ -15,27 +28,13 @@ definitions:
         allOf:
         - $ref: '#/definitions/models.SelectionRole'
         description: '"muse_candidate" or "ick_candidate"'
-      spotify_id:
+      spotify_item_id:
         type: string
-      spotify_type:
-        allOf:
-        - $ref: '#/definitions/models.SpotifyItemType'
-        description: '"song", "album", or "artist"'
     required:
+    - item_type
     - month_year
     - selection_role
-    - spotify_id
-    - spotify_type
-    type: object
-  handlers.UpdateSelectionRequest:
-    properties:
-      notes:
-        description: Pointer
-        type: string
-      selection_role:
-        allOf:
-        - $ref: '#/definitions/models.SelectionRole'
-        description: Pointer to distinguish between not provided and empty string
+    - spotify_item_id
     type: object
   models.SelectionRole:
     enum:
@@ -49,24 +48,15 @@ definitions:
     - RoleIckCandidate
     - RoleMuseSelected
     - RoleIckSelected
-  models.SpotifyItemType:
-    enum:
-    - song
-    - album
-    - artist
-    type: string
-    x-enum-comments:
-      SpotifyItemTypeSong: Renamed from track
-    x-enum-varnames:
-    - SpotifyItemTypeSong
-    - SpotifyItemTypeAlbum
-    - SpotifyItemTypeArtist
   models.UserSelection:
     properties:
       added_at:
         description: When the user first added this item for this role/month
         type: integer
       id:
+        type: string
+      item_type:
+        description: '"track", "album", or "artist"'
         type: string
       month_year:
         description: 'Format: "YYYY-MM", e.g., "2024-07"'
@@ -78,13 +68,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/models.SelectionRole'
         description: '"muse_candidate", "ick_candidate", "muse_selected", "ick_selected"'
-      spotify_id:
-        description: ID of the Song/Album/Artist
+      spotify_item_id:
+        description: ID of the Track/Album/Artist
         type: string
-      spotify_type:
-        allOf:
-        - $ref: '#/definitions/models.SpotifyItemType'
-        description: '"song", "album", or "artist"'
       updated_at:
         description: When the selection was last modified
         type: integer
@@ -124,7 +110,7 @@ paths:
         name: selection
         required: true
         schema:
-          $ref: '#/definitions/handlers.CreateSelectionRequest'
+          $ref: '#/definitions/models.CreateSelectionRequest'
       produces:
       - application/json
       responses:

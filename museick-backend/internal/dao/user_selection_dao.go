@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"errors" // Import errors package
 	"fmt"
 	"log"
 	"time"
@@ -13,14 +14,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// ErrSelectionExists is returned by Create when the selection already exists.
+var ErrSelectionExists = errors.New("selection already exists")
+
 // UserSelectionDAO defines the interface for user selection data access operations.
 type UserSelectionDAO interface {
 	Create(ctx context.Context, selection *models.UserSelection) (*models.UserSelection, error)
-	FindByUserMonthItem(ctx context.Context, userID, monthYear, spotifyID string, spotifyType models.SpotifyItemType) (*models.UserSelection, error)
+	// FindByUserMonthSpotifyItem finds a selection based on the unique combination of user, month, and spotify item ID.
+	FindByUserMonthSpotifyItem(ctx context.Context, userID, monthYear, spotifyItemID string) (*models.UserSelection, error)
 	// FindByRole finds selections matching a specific role for a user/month.
 	FindByRole(ctx context.Context, userID, monthYear string, role models.SelectionRole) ([]*models.UserSelection, error)
-	// FindSelected finds the currently selected Muse or Ick for a user/month.
-	FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole) (*models.UserSelection, error)
+	// FindSelected finds the currently selected Muse or Ick for a user/month/itemType.
+	FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole, itemType string) (*models.UserSelection, error) // Added itemType
 	Update(ctx context.Context, selectionID primitive.ObjectID, updates bson.M) (*models.UserSelection, error)
 	// UpdateRole updates only the role of a selection.
 	UpdateRole(ctx context.Context, selectionID primitive.ObjectID, newRole models.SelectionRole, updatedAt primitive.DateTime) error
@@ -43,10 +48,9 @@ func NewUserSelectionDAO(client *mongo.Client, dbName string, collectionName str
 		Keys: bson.D{
 			{Key: "user_id", Value: 1},
 			{Key: "month_year", Value: 1},
-			{Key: "spotify_id", Value: 1},
-			{Key: "spotify_type", Value: 1},
+			{Key: "spotify_item_id", Value: 1}, // Updated field name
 		},
-		Options: options.Index().SetUnique(true), // Ensure a user can only add the same item once per month
+		Options: options.Index().SetUnique(true), // Ensure a user can only add the same item once per month/item
 	}
 	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
 	if err != nil {
@@ -100,31 +104,27 @@ func (dao *userSelectionDAOImpl) Create(ctx context.Context, selection *models.U
 	if err != nil {
 		// Handle potential duplicate key error due to unique index
 		if mongo.IsDuplicateKeyError(err) {
-			log.Printf("Attempted to create duplicate selection for user '%s', month '%s', item '%s (%s)'\n",
-				selection.UserID, selection.MonthYear, selection.SpotifyID, selection.SpotifyType)
-			// Return a specific error or the existing document
-			existing, findErr := dao.FindByUserMonthItem(ctx, selection.UserID, selection.MonthYear, selection.SpotifyID, selection.SpotifyType)
-			if findErr == nil && existing != nil {
-				return existing, fmt.Errorf("selection already exists: %w", err) // Wrap duplicate error
-			}
-			// If finding the existing one also failed, return the original insert error
-			return nil, fmt.Errorf("error creating selection (duplicate check failed): %w", err)
+			log.Printf("Duplicate key error for user '%s', month '%s', item '%s'. Selection already exists.",
+				selection.UserID, selection.MonthYear, selection.SpotifyItemID)
+			// Simply return the sentinel error. The service layer will handle fetching the existing item if needed.
+			return nil, ErrSelectionExists // Return nil item, specific error
 		}
-		log.Printf("Error creating user selection: %v\n", err)
+		// If it wasn't a duplicate key error, return the wrapped error
+		log.Printf("Error creating user selection: %v", err)
 		return nil, fmt.Errorf("error creating selection: %w", err)
 	}
 	log.Printf("Successfully created user selection with ID '%s'\n", selection.ID.Hex())
 	return selection, nil
 }
 
-// FindByUserMonthItem finds a specific selection entry.
-func (dao *userSelectionDAOImpl) FindByUserMonthItem(ctx context.Context, userID, monthYear, spotifyID string, spotifyType models.SpotifyItemType) (*models.UserSelection, error) {
+// FindByUserMonthSpotifyItem finds a specific selection entry based on the unique index fields.
+func (dao *userSelectionDAOImpl) FindByUserMonthSpotifyItem(ctx context.Context, userID, monthYear, spotifyItemID string) (*models.UserSelection, error) {
 	var selection models.UserSelection
+	// Filter only by the fields in the unique index
 	filter := bson.M{
-		"user_id":      userID,
-		"month_year":   monthYear,
-		"spotify_id":   spotifyID,
-		"spotify_type": spotifyType,
+		"user_id":         userID,
+		"month_year":      monthYear,
+		"spotify_item_id": spotifyItemID,
 	}
 	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
 	if err != nil {
@@ -162,17 +162,19 @@ func (dao *userSelectionDAOImpl) FindByRole(ctx context.Context, userID, monthYe
 	return selections, nil
 }
 
-// FindSelected finds the single currently selected Muse or Ick for a user/month.
+// FindSelected finds the single currently selected Muse or Ick for a user/month/itemType.
 // Expects role to be RoleMuseSelected or RoleIckSelected.
-func (dao *userSelectionDAOImpl) FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole) (*models.UserSelection, error) {
+func (dao *userSelectionDAOImpl) FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole, itemType string) (*models.UserSelection, error) { // Added itemType
 	if role != models.RoleMuseSelected && role != models.RoleIckSelected {
 		return nil, fmt.Errorf("invalid role for FindSelected: %s", role)
 	}
 	var selection models.UserSelection
+	// Filter by user, month, role, AND item type
 	filter := bson.M{
 		"user_id":        userID,
 		"month_year":     monthYear,
 		"selection_role": role,
+		"item_type":      itemType, // Added itemType filter
 	}
 	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
 	if err != nil {

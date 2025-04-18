@@ -56,7 +56,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.CreateSelectionRequest"
+                            "$ref": "#/definitions/models.CreateSelectionRequest"
                         }
                     }
                 ],
@@ -313,15 +313,36 @@ const docTemplate = `{
             "type": "object",
             "additionalProperties": {}
         },
-        "handlers.CreateSelectionRequest": {
+        "handlers.UpdateSelectionRequest": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "description": "Pointer",
+                    "type": "string"
+                },
+                "selection_role": {
+                    "description": "Pointer to distinguish between not provided and empty string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SelectionRole"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.CreateSelectionRequest": {
             "type": "object",
             "required": [
+                "item_type",
                 "month_year",
                 "selection_role",
-                "spotify_id",
-                "spotify_type"
+                "spotify_item_id"
             ],
             "properties": {
+                "item_type": {
+                    "description": "\"track\", \"album\", or \"artist\"",
+                    "type": "string"
+                },
                 "month_year": {
                     "description": "\"YYYY-MM\"",
                     "type": "string"
@@ -338,33 +359,8 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "spotify_id": {
+                "spotify_item_id": {
                     "type": "string"
-                },
-                "spotify_type": {
-                    "description": "\"song\", \"album\", or \"artist\"",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.SpotifyItemType"
-                        }
-                    ]
-                }
-            }
-        },
-        "handlers.UpdateSelectionRequest": {
-            "type": "object",
-            "properties": {
-                "notes": {
-                    "description": "Pointer",
-                    "type": "string"
-                },
-                "selection_role": {
-                    "description": "Pointer to distinguish between not provided and empty string",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.SelectionRole"
-                        }
-                    ]
                 }
             }
         },
@@ -383,22 +379,6 @@ const docTemplate = `{
                 "RoleIckSelected"
             ]
         },
-        "models.SpotifyItemType": {
-            "type": "string",
-            "enum": [
-                "song",
-                "album",
-                "artist"
-            ],
-            "x-enum-comments": {
-                "SpotifyItemTypeSong": "Renamed from track"
-            },
-            "x-enum-varnames": [
-                "SpotifyItemTypeSong",
-                "SpotifyItemTypeAlbum",
-                "SpotifyItemTypeArtist"
-            ]
-        },
         "models.UserSelection": {
             "type": "object",
             "properties": {
@@ -407,6 +387,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "item_type": {
+                    "description": "\"track\", \"album\", or \"artist\"",
                     "type": "string"
                 },
                 "month_year": {
@@ -425,17 +409,9 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "spotify_id": {
-                    "description": "ID of the Song/Album/Artist",
+                "spotify_item_id": {
+                    "description": "ID of the Track/Album/Artist",
                     "type": "string"
-                },
-                "spotify_type": {
-                    "description": "\"song\", \"album\", or \"artist\"",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.SpotifyItemType"
-                        }
-                    ]
                 },
                 "updated_at": {
                     "description": "When the selection was last modified",

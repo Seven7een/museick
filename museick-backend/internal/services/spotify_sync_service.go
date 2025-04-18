@@ -9,59 +9,61 @@ import (
 
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/models"
-	"github.com/zmb3/spotify/v2" // Using spotify client library
+	"github.com/zmb3/spotify/v2"
+	// spotifyauth "github.com/zmb3/spotify/v2/auth" // Removed unused import
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/oauth2" // Required for oauth2.Token
 )
 
 // SpotifySyncService handles fetching data from Spotify API and syncing it to the database.
 type SpotifySyncService struct {
-	spotifyClient *spotify.Client // Assumes SpotifyService provides an authenticated client
-	songDAO       dao.SpotifySongDAO
-	albumDAO      dao.SpotifyAlbumDAO
-	artistDAO     dao.SpotifyArtistDAO
-	// TODO: Inject SpotifyService or a way to get an authenticated client
+	trackDAO  dao.SpotifyTrackDAO
+	albumDAO  dao.SpotifyAlbumDAO
+	artistDAO dao.SpotifyArtistDAO
 }
 
 // NewSpotifySyncService creates a new instance of SpotifySyncService.
-// It needs access to the DAOs and a way to make authenticated Spotify API calls.
 func NewSpotifySyncService(
-	songDAO dao.SpotifySongDAO,
+	trackDAO dao.SpotifyTrackDAO,
 	albumDAO dao.SpotifyAlbumDAO,
 	artistDAO dao.SpotifyArtistDAO,
-	// spotifyService *SpotifyService // Option 1: Inject the existing service
-	// clientProvider func(ctx context.Context) (*spotify.Client, error) // Option 2: Inject a function to get a client
 ) *SpotifySyncService {
-	// For now, we'll assume a client is obtained elsewhere or this service
-	// gets enhanced later to handle client authentication/refresh.
-	// This is a placeholder and needs proper implementation for auth.
-	log.Println("Initializing SpotifySyncService (NOTE: Spotify client setup is placeholder)")
+	log.Println("Initializing SpotifySyncService")
 	return &SpotifySyncService{
-		songDAO:   songDAO,
+		trackDAO:  trackDAO,
 		albumDAO:  albumDAO,
 		artistDAO: artistDAO,
-		// spotifyClient: nil, // Needs proper initialization
 	}
 }
 
-// SyncItem fetches details for a Spotify item (song, album, artist) by its ID
+// createTemporaryClient creates a Spotify client using a provided access token.
+func createTemporaryClient(ctx context.Context, accessToken string) *spotify.Client {
+	token := &oauth2.Token{AccessToken: accessToken, TokenType: "Bearer"}
+	// Create an http.Client that uses the provided token.
+	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
+	// Create the Spotify client using the OAuth2-aware http.Client.
+	client := spotify.New(httpClient)
+	return client
+}
+
+// SyncItem fetches details for a Spotify item using a provided client
 // and upserts it into the corresponding database collection.
-// It requires an authenticated Spotify client.
-func (s *SpotifySyncService) SyncItem(ctx context.Context, spotifyID string, itemType models.SpotifyItemType, client *spotify.Client) error {
+func (s *SpotifySyncService) SyncItem(ctx context.Context, spotifyID string, itemType string, client *spotify.Client) error {
 	if client == nil {
 		log.Println("Error: Spotify client is nil in SyncItem")
-		return errors.New("spotify client not available")
+		return errors.New("spotify client not available for sync")
 	}
 
 	log.Printf("Syncing Spotify item: ID=%s, Type=%s", spotifyID, itemType)
 
 	var err error
 	switch itemType {
-	case models.SpotifyItemTypeSong:
-		err = s.syncSong(ctx, spotifyID, client)
-	case models.SpotifyItemTypeAlbum:
+	case "track":
+		err = s.syncTrack(ctx, spotifyID, client)
+	case "album":
 		err = s.syncAlbum(ctx, spotifyID, client)
-	case models.SpotifyItemTypeArtist:
+	case "artist":
 		err = s.syncArtist(ctx, spotifyID, client)
 	default:
 		err = fmt.Errorf("unsupported spotify item type: %s", itemType)
@@ -69,25 +71,21 @@ func (s *SpotifySyncService) SyncItem(ctx context.Context, spotifyID string, ite
 
 	if err != nil {
 		log.Printf("Error syncing item %s (%s): %v", spotifyID, itemType, err)
-		return err
+		return err // Return the specific sync error
 	}
 
 	log.Printf("Successfully synced item %s (%s)", spotifyID, itemType)
 	return nil
 }
 
-// syncSong fetches song details and upserts to DB.
-func (s *SpotifySyncService) syncSong(ctx context.Context, spotifyID string, client *spotify.Client) error {
+// syncTrack fetches track details and upserts to DB.
+func (s *SpotifySyncService) syncTrack(ctx context.Context, spotifyID string, client *spotify.Client) error {
 	fullTrack, err := client.GetTrack(ctx, spotify.ID(spotifyID))
 	if err != nil {
-		return fmt.Errorf("failed to get song from Spotify API: %w", err)
+		return fmt.Errorf("failed to get track from Spotify API: %w", err)
 	}
-
-	// Map spotify.FullTrack to models.SpotifySong
-	dbSong := mapSpotifyTrackToDBSongModel(fullTrack)
-
-	// Upsert into database
-	return s.songDAO.Upsert(ctx, dbSong)
+	dbTrack := mapSpotifyTrackToDBTrackModel(fullTrack)
+	return s.trackDAO.Upsert(ctx, dbTrack)
 }
 
 // syncAlbum fetches album details and upserts to DB.
@@ -96,14 +94,7 @@ func (s *SpotifySyncService) syncAlbum(ctx context.Context, spotifyID string, cl
 	if err != nil {
 		return fmt.Errorf("failed to get album from Spotify API: %w", err)
 	}
-
-	// Create album with total tracks from full album data
-	dbAlbum := mapSpotifyAlbumToDBModel(&fullAlbum.SimpleAlbum)
-	if fullAlbum.Tracks.Total > 0 {
-		dbAlbum.TotalTracks = int(fullAlbum.Tracks.Total)
-	}
-
-	// Upsert into database
+	dbAlbum := mapSpotifyAlbumToDBModel(fullAlbum) // Map from FullAlbum
 	return s.albumDAO.Upsert(ctx, dbAlbum)
 }
 
@@ -113,58 +104,63 @@ func (s *SpotifySyncService) syncArtist(ctx context.Context, spotifyID string, c
 	if err != nil {
 		return fmt.Errorf("failed to get artist from Spotify API: %w", err)
 	}
-
-	// Map spotify.FullArtist to models.SpotifyArtist
 	dbArtist := mapSpotifyArtistToDBModel(fullArtist)
-
-	// Upsert into database
 	return s.artistDAO.Upsert(ctx, dbArtist)
 }
 
 // --- Mapping Functions ---
 
-func mapSpotifyTrackToDBSongModel(st *spotify.FullTrack) *models.SpotifySong {
+func mapSpotifyTrackToDBTrackModel(st *spotify.FullTrack) *models.SpotifyTrack {
 	if st == nil {
 		return nil
 	}
-	return &models.SpotifySong{
-		SpotifyID:        st.ID.String(),
-		Album:            *mapSpotifySimpleAlbumToDBModel(&st.Album),
+	isPlayable := false // Default value if IsPlayable is nil
+	if st.IsPlayable != nil {
+		isPlayable = *st.IsPlayable
+	}
+	return &models.SpotifyTrack{
+		SpotifyID:        st.ID.String(), // Use SpotifyID as _id
+		Name:             st.Name,
 		Artists:          mapSpotifySimpleArtistsToDBModels(st.Artists),
-		AvailableMarkets: st.AvailableMarkets,
-		DiscNumber:       int(st.DiscNumber),
+		Album:            *mapSpotifySimpleAlbumToDBModel(&st.Album), // Map embedded SimpleAlbum
 		DurationMs:       int(st.Duration),
 		Explicit:         st.Explicit,
-		ExternalIDs:      st.ExternalIDs,
-		ExternalUrls:     st.ExternalURLs,
-		Name:             st.Name,
 		Popularity:       int(st.Popularity),
 		PreviewURL:       st.PreviewURL,
 		TrackNumber:      int(st.TrackNumber),
+		ExternalUrls:     st.ExternalURLs,
+		AvailableMarkets: st.AvailableMarkets,
+		DiscNumber:       int(st.DiscNumber),
+		ExternalIDs:      st.ExternalIDs,
 		Type:             string(st.Type),
 		URI:              string(st.URI),
-		IsLocal:          false, // IsLocal is not available in the Spotify API
+		IsLocal:          isPlayable, // Note: Library uses IsPlayable (*bool), model uses IsLocal (bool)
 		LastFetchedAt:    primitive.NewDateTimeFromTime(time.Now()),
 	}
 }
 
-func mapSpotifyAlbumToDBModel(sa *spotify.SimpleAlbum) *models.SpotifyAlbum {
-	if sa == nil {
+func mapSpotifyAlbumToDBModel(fa *spotify.FullAlbum) *models.SpotifyAlbum {
+	if fa == nil {
 		return nil
 	}
+	// Access SimpleAlbum fields via fa.SimpleAlbum embedding
 	return &models.SpotifyAlbum{
-		SpotifyID:            sa.ID.String(),
-		AlbumType:            sa.AlbumType,
-		TotalTracks:          0, // This should be set from FullAlbum.Tracks.Total
-		AvailableMarkets:     sa.AvailableMarkets,
-		ExternalUrls:         sa.ExternalURLs,
-		Images:               mapSpotifyImagesToDBModels(sa.Images),
-		Name:                 sa.Name,
-		ReleaseDate:          sa.ReleaseDate,
-		ReleaseDatePrecision: sa.ReleaseDatePrecision,
-		URI:                  string(sa.URI),
-		Artists:              mapSpotifySimpleArtistsToDBModels(sa.Artists),
-		LastFetchedAt:        primitive.NewDateTimeFromTime(time.Now()),
+		SpotifyID:            fa.ID.String(), // Use SpotifyID as _id
+		AlbumType:            fa.AlbumType,
+		TotalTracks:          int(fa.Tracks.Total), // Get from FullAlbum's Tracks field
+		AvailableMarkets:     fa.AvailableMarkets,
+		ExternalUrls:         fa.ExternalURLs,
+		// Href:                 fa.Href, // Href is on SimpleAlbum, accessed via embedding
+		Images:               mapSpotifyImagesToDBModels(fa.Images),
+		Name:                 fa.Name,
+		ReleaseDate:          fa.ReleaseDate,
+		ReleaseDatePrecision: fa.ReleaseDatePrecision,
+		// Restrictions:         mapRestrictions(fa.Restrictions), // Restrictions is on FullAlbum (pointer) - Commented out as per user feedback
+		Type:                 string(fa.AlbumType),            // Use AlbumType from FullAlbum as Type
+		URI:                  string(fa.URI),
+		Artists:              mapSpotifySimpleArtistsToDBModels(fa.Artists), // Map embedded SimpleArtists
+		// TODO: Add Genres, Label, Copyrights if they exist in models.SpotifyAlbum and fa.FullAlbum
+		LastFetchedAt: primitive.NewDateTimeFromTime(time.Now()),
 	}
 }
 
@@ -174,32 +170,39 @@ func mapSpotifySimpleAlbumToDBModel(sa *spotify.SimpleAlbum) *models.SimplifiedA
 	}
 	return &models.SimplifiedAlbum{
 		AlbumType:            sa.AlbumType,
-		TotalTracks:          0, // This field should be set from the full album if available
+		TotalTracks:          int(sa.TotalTracks), // SimpleAlbum has TotalTracks
 		AvailableMarkets:     sa.AvailableMarkets,
 		ExternalUrls:         sa.ExternalURLs,
+		// Href:                 sa.Href, // Href is on SimpleAlbum - Commented out as per user feedback
 		ID:                   sa.ID.String(),
 		Images:               mapSpotifyImagesToDBModels(sa.Images),
 		Name:                 sa.Name,
 		ReleaseDate:          sa.ReleaseDate,
 		ReleaseDatePrecision: sa.ReleaseDatePrecision,
+		// Restrictions:         mapRestrictions(sa.Restrictions), // SimpleAlbum has Restrictions (pointer) - Commented out as per user feedback
+		Type:                 sa.AlbumGroup,                   // SimpleAlbum has AlbumGroup
 		URI:                  string(sa.URI),
 		Artists:              mapSpotifySimpleArtistsToDBModels(sa.Artists),
 	}
 }
 
-func mapSpotifyArtistToDBModel(sa *spotify.FullArtist) *models.SpotifyArtist {
-	if sa == nil {
+func mapSpotifyArtistToDBModel(fa *spotify.FullArtist) *models.SpotifyArtist {
+	if fa == nil {
 		return nil
 	}
-	popularity := int(sa.Popularity)
+	popularity := int(fa.Popularity)
+	// Access SimpleArtist fields via fa.SimpleArtist embedding
 	return &models.SpotifyArtist{
-		SpotifyID:     sa.ID.String(),
-		ExternalUrls:  sa.ExternalURLs,
-		Genres:        sa.Genres,
-		Images:        mapSpotifyImagesToDBModels(sa.Images),
-		Name:          sa.Name,
-		Popularity:    &popularity,
-		URI:           string(sa.URI),
+		SpotifyID:    fa.ID.String(), // Use SpotifyID as _id
+		ExternalUrls: fa.ExternalURLs,
+		Genres:       fa.Genres, // FullArtist has Genres
+		// Href:         fa.Href,   // Href is on SimpleArtist, accessed via embedding - Commented out as per user feedback
+		Images:       mapSpotifyImagesToDBModels(fa.Images),
+		Name:         fa.Name,
+		Popularity:   &popularity, // FullArtist has Popularity
+		// Type:         string(fa.Type), // Type is on SimpleArtist, accessed via embedding - Commented out as per user feedback
+		URI:          string(fa.URI),
+		// TODO: Map Followers if needed (fa.Followers.Count)
 		LastFetchedAt: primitive.NewDateTimeFromTime(time.Now()),
 	}
 }
@@ -212,8 +215,10 @@ func mapSpotifySimpleArtistsToDBModels(sas []spotify.SimpleArtist) []models.Simp
 	for i, sa := range sas {
 		dbArtists[i] = models.SimplifiedArtist{
 			ExternalUrls: sa.ExternalURLs,
+			// Href:         sa.Href, // SimpleArtist has Href - Commented out as per user feedback
 			ID:           sa.ID.String(),
 			Name:         sa.Name,
+			// Type:         string(sa.Type), // SimpleArtist has Type - Commented out as per user feedback
 			URI:          string(sa.URI),
 		}
 	}
@@ -226,16 +231,27 @@ func mapSpotifyImagesToDBModels(imgs []spotify.Image) []models.ImageObject {
 	}
 	dbImages := make([]models.ImageObject, len(imgs))
 	for i, img := range imgs {
-		height := int(img.Height) // Convert spotify.Numeric to int
-		width := int(img.Width)   // Convert spotify.Numeric to int
+		height := int(img.Height)
+		width := int(img.Width)
 		dbImages[i] = models.ImageObject{
 			URL:    img.URL,
-			Height: &height,
-			Width:  &width,
+			Height: &height, // Model uses pointer
+			Width:  &width,  // Model uses pointer
 		}
 	}
 	return dbImages
 }
+
+// mapRestrictions maps *spotify.Restrictions to *models.Restrictions
+// Commented out as per user feedback
+// func mapRestrictions(r *spotify.Restrictions) *models.Restrictions {
+// 	if r == nil || r.Reason == "" {
+// 		return nil
+// 	}
+// 	return &models.Restrictions{
+// 		Reason: r.Reason,
+// 	}
+// }
 
 // Helper function to check if an item needs refreshing based on LastFetchedAt
 func needsRefresh(lastFetched time.Time, threshold time.Duration) bool {
@@ -244,11 +260,9 @@ func needsRefresh(lastFetched time.Time, threshold time.Duration) bool {
 
 // GetOrSyncItem tries to get an item from the DB first. If not found or stale,
 // it fetches from Spotify API, upserts to DB, and returns the item.
-// This requires an authenticated Spotify client.
-func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string, itemType models.SpotifyItemType, client *spotify.Client, refreshThreshold time.Duration) (interface{}, error) {
-	if client == nil {
-		log.Println("Error: Spotify client is nil in GetOrSyncItem")
-		return nil, errors.New("spotify client not available")
+func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string, itemType string, spotifyToken string, refreshThreshold time.Duration) (interface{}, error) {
+	if spotifyToken == "" {
+		log.Println("Warning: Spotify token is missing in GetOrSyncItem, cannot sync if needed.")
 	}
 
 	var dbItem interface{}
@@ -256,18 +270,18 @@ func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string
 	var err error
 	var foundInDB bool
 
-	// 1. Try to get from DB
+	// 1. Try to get from DB using GetByID
 	switch itemType {
-	case models.SpotifyItemTypeSong:
-		song, errGet := s.songDAO.GetByID(ctx, spotifyID)
+	case "track":
+		track, errGet := s.trackDAO.GetByID(ctx, spotifyID)
 		if errGet == nil {
-			dbItem = song
-			lastFetched = song.LastFetchedAt.Time()
+			dbItem = track
+			lastFetched = track.LastFetchedAt.Time()
 			foundInDB = true
 		} else if !errors.Is(errGet, mongo.ErrNoDocuments) {
-			return nil, fmt.Errorf("error getting song from DB: %w", errGet) // DB error
+			return nil, fmt.Errorf("error getting track from DB: %w", errGet)
 		}
-	case models.SpotifyItemTypeAlbum:
+	case "album":
 		album, errGet := s.albumDAO.GetByID(ctx, spotifyID)
 		if errGet == nil {
 			dbItem = album
@@ -276,7 +290,7 @@ func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string
 		} else if !errors.Is(errGet, mongo.ErrNoDocuments) {
 			return nil, fmt.Errorf("error getting album from DB: %w", errGet)
 		}
-	case models.SpotifyItemTypeArtist:
+	case "artist":
 		artist, errGet := s.artistDAO.GetByID(ctx, spotifyID)
 		if errGet == nil {
 			dbItem = artist
@@ -290,28 +304,46 @@ func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string
 	}
 
 	// 2. Check if refresh is needed (not found or stale)
-	if !foundInDB || needsRefresh(lastFetched, refreshThreshold) {
-		log.Printf("Item %s (%s) not found in DB or needs refresh. Fetching from Spotify...", spotifyID, itemType)
-		// 3. Fetch from Spotify and Upsert
-		err = s.SyncItem(ctx, spotifyID, itemType, client)
-		if err != nil {
-			return nil, fmt.Errorf("failed to sync item from Spotify: %w", err) // Sync failed
+	needsSync := !foundInDB || needsRefresh(lastFetched, refreshThreshold)
+
+	if needsSync {
+		log.Printf("Item %s (%s) not found in DB or needs refresh. Attempting sync...", spotifyID, itemType)
+
+		if spotifyToken == "" {
+			log.Printf("Cannot sync item %s (%s): Spotify token is missing.", spotifyID, itemType)
+			if foundInDB {
+				log.Println("Returning stale item as sync is not possible without token.")
+				return dbItem, nil
+			}
+			return nil, errors.New("cannot sync item: spotify token missing")
 		}
 
-		// 4. Get the newly upserted item from DB
-		// Re-fetch from DB to ensure we return the stored version
+		// Create a temporary client for this sync operation
+		tempClient := createTemporaryClient(ctx, spotifyToken)
+
+		// 3. Fetch from Spotify and Upsert using the temporary client
+		err = s.SyncItem(ctx, spotifyID, itemType, tempClient)
+		if err != nil {
+			if foundInDB {
+				log.Printf("Sync failed for stale item %s (%s), returning stale data. Error: %v", spotifyID, itemType, err)
+				return dbItem, nil // Return stale data if sync fails
+			}
+			return nil, fmt.Errorf("failed to sync item from Spotify: %w", err) // Sync failed and no stale data
+		}
+
+		// 4. Get the newly upserted item from DB using GetByID
 		switch itemType {
-		case models.SpotifyItemTypeSong:
-			dbItem, err = s.songDAO.GetByID(ctx, spotifyID)
-		case models.SpotifyItemTypeAlbum:
+		case "track":
+			dbItem, err = s.trackDAO.GetByID(ctx, spotifyID)
+		case "album":
 			dbItem, err = s.albumDAO.GetByID(ctx, spotifyID)
-		case models.SpotifyItemTypeArtist:
+		case "artist":
 			dbItem, err = s.artistDAO.GetByID(ctx, spotifyID)
 		}
 		if err != nil {
-			// This shouldn't happen if upsert succeeded, but handle defensively
 			return nil, fmt.Errorf("failed to get item from DB after sync: %w", err)
 		}
+		log.Printf("Successfully synced and retrieved item %s (%s).", spotifyID, itemType)
 	} else {
 		log.Printf("Item %s (%s) found in DB and is fresh.", spotifyID, itemType)
 	}

@@ -46,8 +46,8 @@ export async function addSelectionCandidate(
     method: 'POST',
     headers: await getAuthHeaders(token),
     body: JSON.stringify({
-      spotify_id: spotifyId,
-      spotify_type: itemType === 'song' ? 'track' : itemType, // Convert 'song' to 'track' for backend
+      spotify_item_id: spotifyId, // Renamed from spotify_id
+      item_type: itemType, // Renamed from spotify_type, ensure itemType is 'track', 'album', or 'artist'
       month_year: monthYear,
       selection_role: role,
     }),
