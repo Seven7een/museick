@@ -1,22 +1,18 @@
-// src/components/yearly/YearlySelectionGrid.tsx // Corrected path comment
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
-import MonthSlot from '@/components/yearly/MonthSlot'; // Correct import name and path
-import { SelectionReplaceModal } from '@/components/yearly/SelectionReplaceModal'; // Correct import name and path
+import MonthSlot from '@/components/yearly/MonthSlot';
+import { SelectionReplaceModal } from '@/components/yearly/SelectionReplaceModal';
 import { SpotifyGridItem, GridMode, GridItemType } from '@/types/spotify.types';
-import { SelectionRole } from '@/types/museick.types'; // Import UserSelection
-import { listSelectionsForMonth } from '@/services/selectionApi'; // Import API service
-import { getSpotifyItemDetails } from '@/features/spotify/spotifyApi'; // Assume this exists to fetch details
+import { SelectionRole } from '@/types/museick.types';
+import { listSelectionsForMonth } from '@/services/selectionApi';
+import { getSpotifyItemDetails } from '@/features/spotify/spotifyApi';
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
-
-// --- Remove Placeholder Data Generation ---
-// const generateInitialYearlyPlaceholders = ... (REMOVE THIS HELPER)
 
 // --- Component Props ---
 interface YearlySelectionGridProps {
@@ -29,7 +25,7 @@ interface YearlySelectionGridProps {
 const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemType, year }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMonthIndex, setEditingMonthIndex] = useState<number | null>(null);
-  // State now holds the selected item for each month, potentially undefined
+  // State holds the selected item for each month, potentially undefined
   const [monthlySelectedItems, setMonthlySelectedItems] = useState<(SpotifyGridItem | undefined)[]>(Array(12).fill(undefined));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,12 +45,10 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
         const monthYear = `${year}-${month}`;
         try {
           const selections = await listSelectionsForMonth(monthYear);
-          // Use updated field names for filtering
           const selectedEntry = selections.find(sel => sel.selection_role === targetSelectedRole && sel.item_type === itemType);
 
           if (selectedEntry) {
-            // itemType prop already matches the required type ('track', 'album', 'artist') for getSpotifyItemDetails
-            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_item_id, itemType); // Use spotify_item_id and itemType
+            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_item_id, itemType);
             // Augment itemDetails with selection info
             itemDetails.selectionId = selectedEntry.id;
             itemDetails.selectionRole = selectedEntry.selection_role;
@@ -184,24 +178,3 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
 
 // --- Corrected Export ---
 export default YearlySelectionGrid;
-
-// --- Placeholder for Spotify Item Fetching ---
-// You need a function like this, likely using the Spotify Web API client
-// or potentially another backend endpoint if you cache/proxy Spotify requests.
-// async function getSpotifyItemDetails(id: string, type: GridItemType): Promise<SpotifyGridItem> {
-//   console.log(`MOCK: Fetching details for ${type} ${id}`);
-//   // Replace with actual Spotify API call using appropriate SDK/method
-//   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-//   // Return mock data matching SpotifyGridItem structure based on id/type
-//   const mockItem: SpotifyGridItem = {
-//       type: type,
-//       id: id,
-//       name: `${type.charAt(0).toUpperCase() + type.slice(1)} Name for ${id}`,
-//       // Add other relevant fields based on type (artists, album, images, etc.)
-//       images: [{ url: `https://picsum.photos/seed/${id}/150/150` }],
-//       artists: type !== 'artist' ? [{ name: 'Mock Artist' }] : undefined,
-//       album: type === 'track' ? { id: 'mockAlbum', name: 'Mock Album', images: [{ url: `https://picsum.photos/seed/${id}a/150/150` }] } : undefined,
-//       external_urls: { spotify: '#' },
-//   };
-//   return mockItem;
-// }

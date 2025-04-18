@@ -1,4 +1,4 @@
-import { GridItemType } from './spotify.types'; // Corrected import
+import { GridItemType } from './spotify.types';
 
 // Matches backend models.SelectionRole
 export type SelectionRole =
@@ -11,26 +11,16 @@ export type SelectionRole =
 export interface UserSelection {
   id: string; // MongoDB ObjectID as string
   user_id: string;
-  spotify_item_id: string; // Renamed from spotify_id
-  item_type: GridItemType; // Renamed from spotify_type, uses 'track', 'album', 'artist'
+  spotify_item_id: string;
+  item_type: GridItemType;
   selection_role: SelectionRole;
   month_year: string; // "YYYY-MM"
   added_at: string; // ISO Date string
   updated_at: string; // ISO Date string
   notes?: string;
-  // We might need to embed some core Spotify item details here for display
-  // or fetch them separately based on spotify_id/spotify_type.
-  // For simplicity now, assume we fetch separately or the grid/modal already has item details.
-  // Example embedded details (optional):
-  // name?: string;
-  // artists_display?: string;
-  // image_url?: string;
+  // This is used for comms with the backend API and spotify, but the actual display on frontend is done with the interface
+  // type DisplayListItem = (SpotifyTrackItem | SpotifyAlbumItem | SpotifyArtistItem) & {
+  //   type: GridItemType;
+  //   selectionId?: string;
+  //   selectionRole?: SelectionRole;
 }
-
-// Augment SpotifyGridItem to include selection details when relevant
-/* declare module '@/types/spotify.types' {
-  interface SpotifyGridItem {
-    selectionId?: string; // The MongoDB _id of the UserSelection record
-    selectionRole?: SelectionRole;
-  }
-}*/

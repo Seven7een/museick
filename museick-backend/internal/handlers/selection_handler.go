@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/models"
 	"github.com/seven7een/museick/museick-backend/internal/services"
-	"github.com/seven7een/museick/museick-backend/middleware" // For ClerkUserIDKey
+	"github.com/seven7een/museick/museick-backend/middleware"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 

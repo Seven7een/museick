@@ -36,7 +36,7 @@ func (s *userServiceImpl) SyncUser(ctx context.Context, sub string) error {
 
 	if err == nil && existingUser != nil {
 		// User already exists - Sync successful (or update last login etc.)
-		// log.Printf("User with sub '%s' already exists. Sync successful.\n", sub)
+		log.Printf("User with sub '%s' already exists. Sync successful.\n", sub)
 		// TODO: Optionally: Update last login timestamp here if needed
 		return nil
 	} else if errors.Is(err, mongo.ErrNoDocuments) {
@@ -59,7 +59,7 @@ func (s *userServiceImpl) SyncUser(ctx context.Context, sub string) error {
 		log.Printf("Error checking user existence for sub '%s': %v\n", sub, err)
 		return err
 	}
-	// This part should ideally not be reached if logic above is correct
-	// log.Printf("Unexpected state during user sync check for sub '%s'.\n", sub)
-	// return errors.New("unexpected error during user sync")
+	// This part should ideally not be reached if logic above is correct, but putting in defensively
+	log.Printf("Unexpected state during user sync check for sub '%s'.\n", sub)
+	return errors.New("unexpected error during user sync")
 }

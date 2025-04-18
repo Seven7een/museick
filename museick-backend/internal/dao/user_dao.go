@@ -34,6 +34,7 @@ func NewUserDAO(client *mongo.Client, dbName string, collectionName string) User
 	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
 	if err != nil {
 		// Log the error but don't necessarily fail startup, maybe index exists
+		// TODO: Check for exists error
 		log.Printf("⚠️ Could not create index on users collection 'sub' field: %v\n", err)
 	} else {
 		log.Println("✅ Index on users collection 'sub' field ensured.")
@@ -50,10 +51,10 @@ func (dao *userDAOImpl) FindBySub(ctx context.Context, sub string) (*models.User
 	err := dao.collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, mongo.ErrNoDocuments // Explicitly return the specific error
+			return nil, mongo.ErrNoDocuments
 		}
 		log.Printf("Error finding user by sub '%s': %v\n", sub, err)
-		return nil, fmt.Errorf("error finding user: %w", err) // Wrap internal error
+		return nil, fmt.Errorf("error finding user: %w", err)
 	}
 
 	return &user, nil
@@ -68,7 +69,7 @@ func (dao *userDAOImpl) Create(ctx context.Context, user *models.User) error {
 		if mongo.IsDuplicateKeyError(err) {
 			log.Printf("Attempted to create duplicate user with sub '%s'\n", user.Sub)
 			// Usually, for sync, finding the existing user is enough, so no error needed here.
-			// If Create is called outside sync, you might return a specific error.
+			// If Create is called outside sync, it might return a specific error.
 			return nil // Or a custom duplicate error
 		}
 		log.Printf("Error creating user with sub '%s': %v\n", user.Sub, err)

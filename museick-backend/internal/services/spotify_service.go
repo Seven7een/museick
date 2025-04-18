@@ -95,7 +95,7 @@ func (s *SpotifyService) RefreshAccessToken(refreshToken string) (map[string]int
 	}
 
 	// Note: The refresh response might not include a new refresh_token.
-	// If it does, you should securely store the new one.
+	// If it does, we should securely store the new one.
 	// If it doesn't, the original refresh_token remains valid.
 	return tokenData, nil
 }

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"log"
-	"net/http" // Import http package for status codes
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/services"

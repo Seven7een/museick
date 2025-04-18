@@ -1,4 +1,3 @@
-// src/features/spotify/auth.ts
 
 // Utility for generating PKCE code verifier and challenge
 export function generateCodeVerifier(length = 128): string {
@@ -37,7 +36,7 @@ export const buildSpotifyAuthUrl = async (): Promise<string> => {
   console.log("Verifier saved to localStorage"); // DEBUG LOG
 
   // --- Add the required scope here ---
-  const requestedScopes = 'user-read-private user-read-email user-top-read'; // Added user-top-read
+  const requestedScopes = 'user-read-private user-read-email user-top-read';
 
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID,
@@ -45,7 +44,7 @@ export const buildSpotifyAuthUrl = async (): Promise<string> => {
     redirect_uri: import.meta.env.VITE_SPOTIFY_REDIRECT_URI,
     code_challenge_method: 'S256',
     code_challenge: challenge,
-    scope: requestedScopes, // Use the updated scopes string
+    scope: requestedScopes,
   });
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`;

@@ -120,8 +120,8 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
           height: '20%', width: '100%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           backgroundColor: 'background.paper', borderTop: `1px solid ${theme.palette.divider}`, cursor: 'pointer',
           zIndex: 1, position: 'relative',
-          borderBottomLeftRadius: isExpanded ? 0 : theme.shape.borderRadius, // Adjust radius based on expansion
-          borderBottomRightRadius: isExpanded ? 0 : theme.shape.borderRadius,
+          borderBottomLeftRadius: 0, //isExpanded ? 0 : theme.shape.borderRadius, // Adjust radius based on expansion
+          borderBottomRightRadius: 0, //isExpanded ? 0 : theme.shape.borderRadius,
           transition: theme.transitions.create(['border-radius'], { duration: theme.transitions.duration.short }),
         }}
         aria-expanded={isExpanded} aria-controls={`item-details-${monthIndex}`}
@@ -149,7 +149,7 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
             bgcolor: 'rgba(0, 0, 0, 0.85)', color: 'white', zIndex: 3,
             p: 2, pt: 8, // Add padding top to avoid overlap with close button
             overflowY: 'auto', display: 'flex', flexDirection: 'column',
-            borderRadius: theme.shape.borderRadius, // Match paper's radius
+            borderRadius: 0 // theme.shape.borderRadius, // Match paper's radius
           }}
         >
           <IconButton aria-label="Close details" onClick={handleToggleExpand} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 4 }}>

@@ -16,10 +16,10 @@ type SpotifyAlbum struct {
 	ReleaseDate          string             `bson:"release_date" json:"release_date"`
 	ReleaseDatePrecision string             `bson:"release_date_precision" json:"release_date_precision"`
 	Restrictions         *Restrictions      `bson:"restrictions,omitempty" json:"restrictions,omitempty"`
-	Type                 string             `bson:"type" json:"type"` // "album"
+	Type                 string             `bson:"type" json:"type"`
 	URI                  string             `bson:"uri" json:"uri"`
 	Artists              []SimplifiedArtist `bson:"artists" json:"artists"` // Simplified artist objects
-	// TODO: Consider adding fields like Genres, Label, Copyrights if fetching full album object
+	// TODO: Consider adding fields like Genres, Label, Copyrights if fetching full album object, but spotify GO api in use is very minimalistic
 	// Internal fields
 	LastFetchedAt primitive.DateTime `bson:"last_fetched_at" json:"last_fetched_at"` // Track when we last updated this from Spotify
 }

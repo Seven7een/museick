@@ -3,8 +3,7 @@ import {
   SpotifyTrackItem,
   SpotifyArtistItem,
   SpotifyAlbumItem,
-  SpotifyUserTopItems, // Import if needed for getMyTopTracks
-  SpotifyImage, // Import SpotifyImage if needed by getImageUrl
+  SpotifyUserTopItems
 } from '@/types/spotify.types';
 
 const BASE_URL = 'https://api.spotify.com/v1';

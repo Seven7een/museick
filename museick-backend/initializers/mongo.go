@@ -13,7 +13,7 @@ import (
 // NewMongoConnection establishes a connection to MongoDB using the provided configuration.
 func NewMongoConnection(cfg *Config) (*mongo.Client, error) {
 	// Construct MongoDB connection URI
-	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s/?authSource=admin", // Added authSource=admin, adjust if needed
+	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s/?authSource=admin",
 		cfg.MongoUser, cfg.MongoPassword, cfg.MongoHost, cfg.MongoPort,
 	)
 

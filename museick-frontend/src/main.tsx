@@ -4,7 +4,6 @@ import App from './App.tsx'
 import './index.css' // Global styles
 import { ClerkProvider } from '@clerk/clerk-react'
 
-// Import your Publishable Key from Vite environment variables
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {

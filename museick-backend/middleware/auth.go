@@ -8,7 +8,7 @@ import (
 
 	"github.com/clerkinc/clerk-sdk-go/clerk"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5" // Ensure this package is downloaded via 'go mod tidy'
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/seven7een/museick/museick-backend/initializers"
 )
 

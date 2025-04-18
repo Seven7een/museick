@@ -11,7 +11,6 @@ import (
 
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/models"
-	// "github.com/zmb3/spotify/v2" // No longer directly needed here
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -241,7 +240,7 @@ func (s *UserSelectionService) UpdateSelection(ctx context.Context, input Update
 			demotionErr := s.selectionDAO.UpdateRole(ctx, currentlySelected.ID, demoteToRole, now)
 			if demotionErr != nil {
 				log.Printf("Error demoting previous selection %s: %v", currentlySelected.ID.Hex(), demotionErr)
-				// Consider if this should be a fatal error for the update operation
+				// TODO: Consider if this should be a fatal error for the update operation
 			}
 		}
 	}
@@ -312,8 +311,3 @@ var monthYearRegex = regexp.MustCompile(`^\d{4}-\d{2}$`)
 func isValidMonthYear(monthYear string) bool {
 	return monthYearRegex.MatchString(monthYear)
 }
-
-// Placeholder for GetClientForUser - Not needed if token is passed directly
-// func (s *SpotifyService) GetClientForUser(ctx context.Context, userID string) (*spotify.Client, error) {
-// 	return nil, errors.New("spotify client not configured or user tokens not found")
-// }

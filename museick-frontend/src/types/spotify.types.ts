@@ -80,7 +80,7 @@ export interface SpotifyImage {
     albums: SpotifyAlbumItem[];
   }
 
-  // You might also want a type for the User's Top Items
+  // Might also want a type for the User's Top Items
   export interface SpotifyUserTopItems<T extends SpotifyTrackItem | SpotifyArtistItem> {
       items: T[];
       total: number;
@@ -95,4 +95,4 @@ export type SpotifyGridItem = SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbu
 
 export type GridMode = 'muse' | 'ick';
 
-export type GridItemType = 'track' | 'artist' | 'album'; // Changed 'song' to 'track'
+export type GridItemType = 'track' | 'artist' | 'album';

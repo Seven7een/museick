@@ -9,10 +9,10 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StarIcon from '@mui/icons-material/Star';
 
-import { SpotifyGridItem, GridItemType, SpotifySearchResults, SpotifyTrackItem, SpotifyAlbumItem, SpotifyArtistItem } from '@/types/spotify.types'; // Added missing imports
-import { SelectionRole, UserSelection } from '@/types/museick.types'; // Added UserSelection import
-import { searchSpotify, SpotifyAuthError, getSpotifyItemDetails } from '@/features/spotify/spotifyApi'; // Import getSpotifyItemDetails
-import { addSelectionCandidate, updateSelection, listSelectionsForMonth } from '@/services/selectionApi'; // Import listSelectionsForMonth
+import { SpotifyGridItem, GridItemType, SpotifyTrackItem, SpotifyAlbumItem, SpotifyArtistItem } from '@/types/spotify.types';
+import { SelectionRole, UserSelection } from '@/types/museick.types';
+import { searchSpotify, SpotifyAuthError, getSpotifyItemDetails } from '@/features/spotify/spotifyApi';
+import { addSelectionCandidate, updateSelection, listSelectionsForMonth } from '@/services/selectionApi';
 
 const DEBOUNCE_DELAY = 500;
 const MIN_SEARCH_LENGTH = 3;

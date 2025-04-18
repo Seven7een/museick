@@ -2,6 +2,8 @@ import { UserSelection, SelectionRole } from '@/types/museick.types';
 import { GridItemType } from '@/types/spotify.types';
 import { SpotifyAuthError } from '@/features/spotify/spotifyApi';
 
+// TODO: Take all this and put it into the backend API file
+
 // Helper function to add both Clerk and Spotify tokens to headers
 const getAuthHeaders = async (jwt: string): Promise<HeadersInit> => {
     const spotifyToken = sessionStorage.getItem('spotify_access_token');

@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/clerk-react";
 
 import theme from '@/theme/theme';
 import Navbar from '@/components/layout/Navbar';
-import Callback from '@/pages/Callback'; // Still needed for the route definition
+import Callback from '@/pages/Callback';
 import HomePage from '@/pages/Home';
 import Playground from '@/pages/Playground';
 import NavigationSpeedDial from '@/components/layout/NavigationSpeedDial';

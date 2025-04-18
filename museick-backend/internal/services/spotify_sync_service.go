@@ -10,10 +10,9 @@ import (
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/models"
 	"github.com/zmb3/spotify/v2"
-	// spotifyauth "github.com/zmb3/spotify/v2/auth" // Removed unused import
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/oauth2" // Required for oauth2.Token
+	"golang.org/x/oauth2"
 )
 
 // SpotifySyncService handles fetching data from Spotify API and syncing it to the database.
@@ -150,12 +149,12 @@ func mapSpotifyAlbumToDBModel(fa *spotify.FullAlbum) *models.SpotifyAlbum {
 		TotalTracks:          int(fa.Tracks.Total), // Get from FullAlbum's Tracks field
 		AvailableMarkets:     fa.AvailableMarkets,
 		ExternalUrls:         fa.ExternalURLs,
-		// Href:                 fa.Href, // Href is on SimpleAlbum, accessed via embedding
+		// Href:                 fa.Href, // Not in the Go Api we're using
 		Images:               mapSpotifyImagesToDBModels(fa.Images),
 		Name:                 fa.Name,
 		ReleaseDate:          fa.ReleaseDate,
 		ReleaseDatePrecision: fa.ReleaseDatePrecision,
-		// Restrictions:         mapRestrictions(fa.Restrictions), // Restrictions is on FullAlbum (pointer) - Commented out as per user feedback
+		// Restrictions:         mapRestrictions(fa.Restrictions), // Not in the Go Api we're using
 		Type:                 string(fa.AlbumType),            // Use AlbumType from FullAlbum as Type
 		URI:                  string(fa.URI),
 		Artists:              mapSpotifySimpleArtistsToDBModels(fa.Artists), // Map embedded SimpleArtists
@@ -170,17 +169,17 @@ func mapSpotifySimpleAlbumToDBModel(sa *spotify.SimpleAlbum) *models.SimplifiedA
 	}
 	return &models.SimplifiedAlbum{
 		AlbumType:            sa.AlbumType,
-		TotalTracks:          int(sa.TotalTracks), // SimpleAlbum has TotalTracks
+		TotalTracks:          int(sa.TotalTracks),
 		AvailableMarkets:     sa.AvailableMarkets,
 		ExternalUrls:         sa.ExternalURLs,
-		// Href:                 sa.Href, // Href is on SimpleAlbum - Commented out as per user feedback
+		// Href:                 sa.Href, // Not in the Go Api we're using
 		ID:                   sa.ID.String(),
 		Images:               mapSpotifyImagesToDBModels(sa.Images),
 		Name:                 sa.Name,
 		ReleaseDate:          sa.ReleaseDate,
 		ReleaseDatePrecision: sa.ReleaseDatePrecision,
-		// Restrictions:         mapRestrictions(sa.Restrictions), // SimpleAlbum has Restrictions (pointer) - Commented out as per user feedback
-		Type:                 sa.AlbumGroup,                   // SimpleAlbum has AlbumGroup
+		// Restrictions:         mapRestrictions(sa.Restrictions), // Not in the Go Api we're using
+		Type:                 sa.AlbumGroup,                  
 		URI:                  string(sa.URI),
 		Artists:              mapSpotifySimpleArtistsToDBModels(sa.Artists),
 	}
@@ -193,14 +192,14 @@ func mapSpotifyArtistToDBModel(fa *spotify.FullArtist) *models.SpotifyArtist {
 	popularity := int(fa.Popularity)
 	// Access SimpleArtist fields via fa.SimpleArtist embedding
 	return &models.SpotifyArtist{
-		SpotifyID:    fa.ID.String(), // Use SpotifyID as _id
+		SpotifyID:    fa.ID.String(),
 		ExternalUrls: fa.ExternalURLs,
-		Genres:       fa.Genres, // FullArtist has Genres
-		// Href:         fa.Href,   // Href is on SimpleArtist, accessed via embedding - Commented out as per user feedback
+		Genres:       fa.Genres, 
+		// Href:         fa.Href,   // Not in the Go Api we're using
 		Images:       mapSpotifyImagesToDBModels(fa.Images),
 		Name:         fa.Name,
-		Popularity:   &popularity, // FullArtist has Popularity
-		// Type:         string(fa.Type), // Type is on SimpleArtist, accessed via embedding - Commented out as per user feedback
+		Popularity:   &popularity,
+		// Type:         string(fa.Type), // Not in the Go Api we're using
 		URI:          string(fa.URI),
 		// TODO: Map Followers if needed (fa.Followers.Count)
 		LastFetchedAt: primitive.NewDateTimeFromTime(time.Now()),
@@ -215,10 +214,10 @@ func mapSpotifySimpleArtistsToDBModels(sas []spotify.SimpleArtist) []models.Simp
 	for i, sa := range sas {
 		dbArtists[i] = models.SimplifiedArtist{
 			ExternalUrls: sa.ExternalURLs,
-			// Href:         sa.Href, // SimpleArtist has Href - Commented out as per user feedback
+			// Href:         sa.Href, // Not in the Go Api we're using
 			ID:           sa.ID.String(),
 			Name:         sa.Name,
-			// Type:         string(sa.Type), // SimpleArtist has Type - Commented out as per user feedback
+			// Type:         string(sa.Type), // Not in the Go Api we're using
 			URI:          string(sa.URI),
 		}
 	}
@@ -241,6 +240,8 @@ func mapSpotifyImagesToDBModels(imgs []spotify.Image) []models.ImageObject {
 	}
 	return dbImages
 }
+
+// Not in the Go Api we're using
 
 // mapRestrictions maps *spotify.Restrictions to *models.Restrictions
 // Commented out as per user feedback

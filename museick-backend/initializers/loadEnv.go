@@ -15,11 +15,11 @@ type Config struct {
 	MongoUser     string `mapstructure:"MONGO_USER"`
 	MongoPassword string `mapstructure:"MONGO_PASSWORD"`
 
-	ServerPort   string `mapstructure:"PORT"`
-	ClientOrigin string `mapstructure:"CLIENT_ORIGIN"` // Frontend URL for CORS
+	ServerPort   string   `mapstructure:"PORT"`
+	ClientOrigin []string `mapstructure:"CLIENT_ORIGIN"` // Frontend URL(s) for CORS
 
 	ClerkSecretKey   string `mapstructure:"CLERK_SECRET_KEY"`
-	ClerkFrontendAPI string `mapstructure:"CLERK_FRONTEND_API"` // Optional: Clerk Frontend API URL
+	ClerkFrontendAPI string `mapstructure:"CLERK_FRONTEND_API"`
 
 	SpotifyClientID     string `mapstructure:"SPOTIFY_CLIENT_ID"`
 	SpotifyClientSecret string `mapstructure:"SPOTIFY_CLIENT_SECRET"`
@@ -60,15 +60,15 @@ func LoadConfig(path string) (err error) {
 			for _, key := range keys {
 				if bindErr := viper.BindEnv(key); bindErr != nil {
 					log.Printf("BindEnv error for %s: %v", key, bindErr)
-					// Decide if this should be fatal or just a warning
-					// return bindErr
+					// Make bind error fatal as there are no optional vars
+					return bindErr
 				}
 			}
 			err = nil // Reset error since file not found is acceptable here
 		} else {
 			// Config file was found but another error was produced
 			log.Printf("Error reading config file: %s", err)
-			return // Return the error
+			return
 		}
 	}
 
@@ -81,7 +81,8 @@ func LoadConfig(path string) (err error) {
 		log.Printf("MongoHost: [%s]", config.MongoHost)
 		log.Printf("MongoDBName: [%s]", config.MongoDBName)
 		log.Printf("ServerPort: [%s]", config.ServerPort)
-		log.Printf("ClientOrigin: [%s]", config.ClientOrigin)
+		// Log the slice of origins
+		log.Printf("ClientOrigin: %v", config.ClientOrigin) // Use %v for slice
 		log.Printf("ClerkFrontendAPI: [%s]", config.ClerkFrontendAPI)
 		// Avoid logging secrets directly
 		log.Printf("SpotifyClientID: [%s]", config.SpotifyClientID)

@@ -2,7 +2,7 @@ package dao
 
 import (
 	"context"
-	"errors" // Import errors package
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -25,7 +25,7 @@ type UserSelectionDAO interface {
 	// FindByRole finds selections matching a specific role for a user/month.
 	FindByRole(ctx context.Context, userID, monthYear string, role models.SelectionRole) ([]*models.UserSelection, error)
 	// FindSelected finds the currently selected Muse or Ick for a user/month/itemType.
-	FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole, itemType string) (*models.UserSelection, error) // Added itemType
+	FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole, itemType string) (*models.UserSelection, error)
 	Update(ctx context.Context, selectionID primitive.ObjectID, updates bson.M) (*models.UserSelection, error)
 	// UpdateRole updates only the role of a selection.
 	UpdateRole(ctx context.Context, selectionID primitive.ObjectID, newRole models.SelectionRole, updatedAt primitive.DateTime) error
@@ -43,12 +43,12 @@ type userSelectionDAOImpl struct {
 // NewUserSelectionDAO creates a new instance of UserSelectionDAO.
 func NewUserSelectionDAO(client *mongo.Client, dbName string, collectionName string) UserSelectionDAO {
 	collection := client.Database(dbName).Collection(collectionName)
-	// Create compound index for efficient lookups and potential uniqueness constraint
+	// Create compound index for efficient lookups and uniqueness constraint - i.e. user selections are a unique ciombination of user, month, and item
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "user_id", Value: 1},
 			{Key: "month_year", Value: 1},
-			{Key: "spotify_item_id", Value: 1}, // Updated field name
+			{Key: "spotify_item_id", Value: 1},
 		},
 		Options: options.Index().SetUnique(true), // Ensure a user can only add the same item once per month/item
 	}
@@ -174,7 +174,7 @@ func (dao *userSelectionDAOImpl) FindSelected(ctx context.Context, userID, month
 		"user_id":        userID,
 		"month_year":     monthYear,
 		"selection_role": role,
-		"item_type":      itemType, // Added itemType filter
+		"item_type":      itemType,
 	}
 	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
 	if err != nil {
