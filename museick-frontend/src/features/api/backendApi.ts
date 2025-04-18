@@ -1,4 +1,4 @@
-import { SpotifyGridItem, SpotifyTrackItem } from '@/types/spotify.types';
+import { SpotifyGridItem } from '@/types/spotify.types';
 import { GridMode, GridItemType } from '@/types/spotify.types';
 
 const BASE_URL = '/api'; // Use relative path for proxy

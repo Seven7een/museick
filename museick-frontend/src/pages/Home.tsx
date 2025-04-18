@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Divider, Snackbar, Alert, Typography, Paper, Button, Collapse, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { useAuth, SignInButton } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
 
 import SpotifyTopSongs from '@/features/spotify/SpotifyTopSongs';
 import { buildSpotifyAuthUrl } from '@/features/spotify/auth';
@@ -56,7 +56,7 @@ const HomePage: React.FC = () => {
   }, []); // Runs once on mount to check for redirect status
 
   // Handler for closing the general Snackbar
-  const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleSnackbarClose = (_?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setSnackbarOpen(false);
   };
