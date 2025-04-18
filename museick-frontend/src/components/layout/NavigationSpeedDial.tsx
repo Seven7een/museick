@@ -4,7 +4,6 @@ import { Box, SpeedDial, SpeedDialIcon, SpeedDialAction } from '@mui/material';
 import { useAuth } from "@clerk/clerk-react";
 
 import HomeIcon from '@mui/icons-material/Home';
-import BuildIcon from '@mui/icons-material/Build';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PersonIcon from '@mui/icons-material/Person';
 import AlbumIcon from '@mui/icons-material/Album';
@@ -15,7 +14,6 @@ const actions = [
   { icon: <MusicNoteIcon />, name: 'Tracks', route: '/tracks', requiresAuth: true }, // Requires auth
   { icon: <AlbumIcon />, name: 'Albums', route: '/albums', requiresAuth: true }, // Requires auth
   { icon: <PersonIcon />, name: 'Artists', route: '/artists', requiresAuth: true }, // Requires auth
-  // { icon: <BuildIcon />, name: 'Playground', route: '/playground', requiresAuth: true }, // Assuming playground is public/dev only
 ];
 
 const NavigationSpeedDial: React.FC = () => {
