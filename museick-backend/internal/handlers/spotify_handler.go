@@ -33,6 +33,9 @@ func (h *SpotifyHandler) ExchangeCodeForToken(c *gin.Context) {
 		return
 	}
 
+	// Log the incoming request details
+	log.Printf("Received /exchange-code request: Code=%s, Verifier=%s", request.Code, request.CodeVerifier)
+
 	// TODO: Add rate limiting if necessary
 
 	tokenData, err := h.SpotifyService.ExchangeCodeForToken(request.Code, request.CodeVerifier)

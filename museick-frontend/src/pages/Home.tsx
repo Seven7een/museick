@@ -126,7 +126,8 @@ const HomePage: React.FC = () => {
             You're all set! Start selecting your monthly tracks, artists, or albums.
           </Typography>
           <Divider sx={{ my: 4 }} />
-          <SpotifyTopSongs />
+          {/* Pass connection status down */}
+          <SpotifyTopSongs isConnected={isSpotifyConnected} />
         </>
       ) : (
         <Box sx={{ textAlign: 'center', mt: 4, p: 2 }}>

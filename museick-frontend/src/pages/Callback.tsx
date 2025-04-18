@@ -67,17 +67,32 @@ const Callback: React.FC = () => {
                 console.log('Callback: Removed verifier from localStorage.');
 
                 const tokenData = await exchangeSpotifyCode(code, verifierToUse, jwt);
-                console.log('Spotify token exchange successful via backend:', tokenData);
+                // --- DETAILED LOGGING ---
+                console.log('Callback: Received tokenData from backend:', JSON.stringify(tokenData)); // Log the whole object
 
-                sessionStorage.setItem('spotify_access_token', tokenData.access_token);
-                // TODO: Store refresh token securely if needed
-                // sessionStorage.setItem('spotify_refresh_token', tokenData.refresh_token);
-                sessionStorage.setItem('spotify_auth_status', 'success');
-                window.dispatchEvent(new CustomEvent('spotifyAuthSuccess'));
+                if (tokenData && tokenData.access_token) {
+                    console.log('Callback: Attempting to set spotify_access_token...');
+                    sessionStorage.setItem('spotify_access_token', tokenData.access_token);
+                    console.log('Callback: spotify_access_token potentially set.'); // Check browser console AND storage
 
-                setProcessingState('success');
+                    console.log('Callback: Attempting to set spotify_auth_status...');
+                    sessionStorage.setItem('spotify_auth_status', 'success');
+                    console.log('Callback: spotify_auth_status potentially set.');
 
-                navigate('/', { replace: true });
+                    console.log('Callback: Dispatching spotifyAuthSuccess event...');
+                    window.dispatchEvent(new CustomEvent('spotifyAuthSuccess'));
+                    console.log('Callback: Event dispatched.');
+
+                    setProcessingState('success');
+                    console.log('Callback: Navigating back to / ...');
+                    navigate('/', { replace: true });
+
+                } else {
+                     // Handle case where backend response is OK but missing token
+                     console.error('Callback: Backend response OK but tokenData or access_token is missing.', tokenData);
+                     throw new Error('Received invalid token data structure from backend.');
+                }
+                // --- END DETAILED LOGGING ---
 
             } catch (err: any) {
                 console.error("Error during Spotify token exchange in Callback:", err);

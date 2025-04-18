@@ -6,14 +6,21 @@ import {
 import { SpotifyTrackItem } from '@/types/spotify.types';
 import { getMyTopTracks } from '@/features/spotify/spotifyApi';
 
-const SpotifyTopSongs: React.FC = () => {
+interface SpotifyTopSongsProps {
+  isConnected: boolean; // Receive connection status from parent
+}
+
+const SpotifyTopSongs: React.FC<SpotifyTopSongsProps> = ({ isConnected }) => {
   const [topTracks, setTopTracks] = useState<SpotifyTrackItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const tokenExists = !!sessionStorage.getItem('spotify_access_token');
-    if (!tokenExists) {
+    // Only fetch if the parent component confirms connection
+    if (!isConnected) {
+        // Optionally clear previous tracks if connection is lost
+        // setTopTracks([]);
+        // setError(null);
         return;
     }
 
@@ -32,7 +39,13 @@ const SpotifyTopSongs: React.FC = () => {
     };
 
     fetchTracks();
-  }, []);
+    // Re-run effect if isConnected status changes
+  }, [isConnected]);
+
+  // If not connected, don't show loading/error/empty states related to fetching
+  if (!isConnected) {
+    return null; // Or some placeholder indicating connection is needed
+  }
 
   if (loading) {
     return (
