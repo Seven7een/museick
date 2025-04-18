@@ -77,9 +77,9 @@ func main() {
 
 	// Core Services
 	userService := services.NewUserService(userDAO)
-	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)                                // Handles basic auth, token exchange with spotify
-	spotifySyncService := services.NewSpotifySyncService(spotifyTrackDAO, spotifyAlbumDAO, spotifyArtistDAO) // Inject Track DAO
-	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService)                 // Pass DAOs and other services
+	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)               // Handles basic auth, token exchange with spotify
+	spotifySyncService := services.NewSpotifySyncService(spotifyTrackDAO, spotifyAlbumDAO, spotifyArtistDAO)       // Inject Track DAO
+	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService) // Pass DAOs and other services
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService)

@@ -32,7 +32,7 @@ async function getAuthToken() {
   return token;
 }
 
-const API_BASE_URL = import.meta.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8080/api';
+const API_BASE_URL = '/api';
 
 /**
  * Adds an item as a candidate for a given month and role.

@@ -5,6 +5,16 @@
     FROM node:20-bullseye AS build
 
     WORKDIR /usr/src/app
+
+    # Declare build arguments for Vite environment variables
+    ARG VITE_CLERK_PUBLISHABLE_KEY
+    ARG VITE_SPOTIFY_REDIRECT_URI
+    ARG VITE_SPOTIFY_CLIENT_ID
+
+    # Expose ARGs as ENV variables for the build process
+    ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+    ENV VITE_SPOTIFY_REDIRECT_URI=$VITE_SPOTIFY_REDIRECT_URI
+    ENV VITE_SPOTIFY_CLIENT_ID=$VITE_SPOTIFY_CLIENT_ID
     
     COPY package*.json ./
     
@@ -28,11 +38,10 @@
     COPY --link --from=build /usr/src/app/dist/ /usr/share/nginx/html
     
     # Nginx container will listen on this port (defined in nginx.conf)
-    EXPOSE 8080
+    EXPOSE 80
     
     # Healthcheck - checks if Nginx is responding
     HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
-      CMD curl -f http://localhost:8080 || exit 1
+      CMD curl -f http://localhost:80/ping || exit 1
     
     # Default command to start Nginx is handled by the base image
-    
