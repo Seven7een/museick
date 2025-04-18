@@ -1,4 +1,306 @@
+basePath: /
+definitions:
+  gin.H:
+    additionalProperties: {}
+    type: object
+  handlers.CreateSelectionRequest:
+    properties:
+      month_year:
+        description: '"YYYY-MM"'
+        type: string
+      notes:
+        description: Optional
+        type: string
+      selection_role:
+        allOf:
+        - $ref: '#/definitions/models.SelectionRole'
+        description: '"muse_candidate" or "ick_candidate"'
+      spotify_id:
+        type: string
+      spotify_type:
+        allOf:
+        - $ref: '#/definitions/models.SpotifyItemType'
+        description: '"song", "album", or "artist"'
+    required:
+    - month_year
+    - selection_role
+    - spotify_id
+    - spotify_type
+    type: object
+  handlers.UpdateSelectionRequest:
+    properties:
+      notes:
+        description: Pointer
+        type: string
+      selection_role:
+        allOf:
+        - $ref: '#/definitions/models.SelectionRole'
+        description: Pointer to distinguish between not provided and empty string
+    type: object
+  models.SelectionRole:
+    enum:
+    - muse_candidate
+    - ick_candidate
+    - muse_selected
+    - ick_selected
+    type: string
+    x-enum-varnames:
+    - RoleMuseCandidate
+    - RoleIckCandidate
+    - RoleMuseSelected
+    - RoleIckSelected
+  models.SpotifyItemType:
+    enum:
+    - song
+    - album
+    - artist
+    type: string
+    x-enum-comments:
+      SpotifyItemTypeSong: Renamed from track
+    x-enum-varnames:
+    - SpotifyItemTypeSong
+    - SpotifyItemTypeAlbum
+    - SpotifyItemTypeArtist
+  models.UserSelection:
+    properties:
+      added_at:
+        description: When the user first added this item for this role/month
+        type: integer
+      id:
+        type: string
+      month_year:
+        description: 'Format: "YYYY-MM", e.g., "2024-07"'
+        type: string
+      notes:
+        description: Optional user notes
+        type: string
+      selection_role:
+        allOf:
+        - $ref: '#/definitions/models.SelectionRole'
+        description: '"muse_candidate", "ick_candidate", "muse_selected", "ick_selected"'
+      spotify_id:
+        description: ID of the Song/Album/Artist
+        type: string
+      spotify_type:
+        allOf:
+        - $ref: '#/definitions/models.SpotifyItemType'
+        description: '"song", "album", or "artist"'
+      updated_at:
+        description: When the selection was last modified
+        type: integer
+      user_id:
+        description: Clerk User ID (sub)
+        type: string
+    type: object
+host: localhost:8080
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is the backend API for the Museick application. It manages user
+    data, Spotify interactions, and Muse/Ick selections.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Museick API
+  version: "1.0"
+paths:
+  /api/selections:
+    post:
+      consumes:
+      - application/json
+      description: Adds a Spotify item (song, album, artist) to the user's candidate
+        list (Muse or Ick) for a specific month.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Candidate Selection Data
+        in: body
+        name: selection
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateSelectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Selection already existed
+          schema:
+            $ref: '#/definitions/models.UserSelection'
+        "201":
+          description: Selection candidate created successfully
+          schema:
+            $ref: '#/definitions/models.UserSelection'
+        "400":
+          description: Invalid input format or data
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Add a selection candidate
+      tags:
+      - selections
+  /api/selections/{id}:
+    delete:
+      description: Deletes a specific user selection (candidate or selected).
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Selection ID (MongoDB ObjectID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Selection deleted successfully
+        "400":
+          description: Invalid ID format
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden (selection does not belong to user)
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Selection not found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Delete a selection
+      tags:
+      - selections
+    put:
+      consumes:
+      - application/json
+      description: Updates the role (e.g., candidate to selected) or notes of a specific
+        selection. Handles demotion of previous selection if needed.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Selection ID (MongoDB ObjectID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update (selection_role and/or notes)
+        in: body
+        name: selection
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateSelectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Selection updated successfully
+          schema:
+            $ref: '#/definitions/models.UserSelection'
+        "400":
+          description: Invalid input format, data, or ID
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "403":
+          description: Forbidden (selection does not belong to user)
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Selection not found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: Update a selection's role or notes
+      tags:
+      - selections
+  /api/selections/{monthYear}:
+    get:
+      description: Retrieves all selections (candidates and selected) for the authenticated
+        user for a specific month.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Month and Year (YYYY-MM)
+        example: 2024-07
+        format: YYYY-MM
+        in: path
+        name: monthYear
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of selections
+          schema:
+            items:
+              $ref: '#/definitions/models.UserSelection'
+            type: array
+        "400":
+          description: Invalid monthYear format
+          schema:
+            $ref: '#/definitions/gin.H'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/gin.H'
+      security:
+      - BearerAuth: []
+      summary: List selections by month
+      tags:
+      - selections
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

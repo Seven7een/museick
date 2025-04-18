@@ -14,13 +14,10 @@ interface SelectionPageLayoutProps {
 }
 
 const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year, pageTitle }) => {
-  const [visibleMode, setVisibleMode] = useState<GridMode>('favorite');
+  const [visibleMode, setVisibleMode] = useState<GridMode>('muse');
   const { isSignedIn } = useAuth();
 
-  const handleModeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newMode: GridMode | null,
-  ) => {
+  const handleModeChange = (_: React.MouseEvent<HTMLElement>, newMode: GridMode | null) => {
     if (newMode !== null) {
       setVisibleMode(newMode);
     }
@@ -59,11 +56,11 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
           aria-label="Select Mode (Muses or Icks)"
           color="primary"
         >
-          <ToggleButton value="favorite" aria-label="Show Muses (Favorites)">
+          <ToggleButton value="muse" aria-label="Show Muses (Favorites)">
             <FavoriteIcon sx={{ mr: 1 }} />
             Muses
           </ToggleButton>
-          <ToggleButton value="leastFavorite" aria-label="Show Icks (Least Favorites)">
+          <ToggleButton value="ick" aria-label="Show Icks (Least Favorites)">
             <HeartBrokenIcon sx={{ mr: 1 }} />
             Icks
           </ToggleButton>
@@ -72,17 +69,17 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
 
       {/* Container for Grids with Fade Transition */}
       <Box sx={{ position: 'relative' }}>
-        {/* Favorite Grid */}
-        <Fade in={visibleMode === 'favorite'} timeout={500} unmountOnExit>
+        {/* Muse Grid */}
+        <Fade in={visibleMode === 'muse'} timeout={500} unmountOnExit>
           <Box>
-            <YearlySelectionGrid mode="favorite" itemType={itemType} year={year} />
+            <YearlySelectionGrid mode="muse" itemType={itemType} year={year} />
           </Box>
         </Fade>
 
-        {/* Least Favorite Grid */}
-        <Fade in={visibleMode === 'leastFavorite'} timeout={500} unmountOnExit>
+        {/* Ick Grid */}
+        <Fade in={visibleMode === 'ick'} timeout={500} unmountOnExit>
            <Box>
-            <YearlySelectionGrid mode="leastFavorite" itemType={itemType} year={year} />
+            <YearlySelectionGrid mode="ick" itemType={itemType} year={year} />
           </Box>
         </Fade>
       </Box>

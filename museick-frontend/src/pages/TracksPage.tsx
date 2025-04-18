@@ -3,10 +3,14 @@ import React from 'react';
 import SelectionPageLayout from '@/components/layout/SelectionPageLayout';
 
 const TracksPage: React.FC = () => {
-  const currentYear = new Date().getFullYear(); // Or get from state/context/props
+  const currentYear = new Date().getFullYear();
 
   return (
-    <SelectionPageLayout itemType="track" year={currentYear} />
+    <SelectionPageLayout 
+      itemType="song" 
+      year={currentYear} 
+      pageTitle="Track Selection"
+    />
   );
 };
 

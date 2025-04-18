@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Container, Divider } from '@mui/material';
+import { Typography, Container, Divider } from '@mui/material';
 import SpotifySearch from '@/features/spotify/SpotifySearch';
 
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
@@ -14,17 +14,17 @@ const Playground: React.FC = () => {
       </Typography>
 
       <Typography variant="h4" component="h2" gutterBottom>Track Selection Grids</Typography>
-      <YearlySelectionGrid mode="favorite" itemType="track" year={currentYear} />
+      <YearlySelectionGrid mode="muse" itemType="song" year={currentYear} />
       <Divider sx={{ my: 5 }} />
-      <YearlySelectionGrid mode="leastFavorite" itemType="track" year={currentYear} />
+      <YearlySelectionGrid mode="ick" itemType="song" year={currentYear} />
       <Divider sx={{ my: 5 }} />
 
       <Typography variant="h4" component="h2" gutterBottom>Artist Selection Grid</Typography>
-      <YearlySelectionGrid mode="favorite" itemType="artist" year={currentYear} />
+      <YearlySelectionGrid mode="muse" itemType="artist" year={currentYear} />
       <Divider sx={{ my: 5 }} />
 
       <Typography variant="h4" component="h2" gutterBottom>Album Selection Grid</Typography>
-      <YearlySelectionGrid mode="favorite" itemType="album" year={currentYear} />
+      <YearlySelectionGrid mode="muse" itemType="album" year={currentYear} />
       <Divider sx={{ my: 5 }} />
 
       <Typography variant="h4" component="h2" gutterBottom>Spotify Search Component</Typography>

@@ -1,0 +1,281 @@
+package dao
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/seven7een/museick/museick-backend/internal/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+// UserSelectionDAO defines the interface for user selection data access operations.
+type UserSelectionDAO interface {
+	Create(ctx context.Context, selection *models.UserSelection) (*models.UserSelection, error)
+	FindByUserMonthItem(ctx context.Context, userID, monthYear, spotifyID string, spotifyType models.SpotifyItemType) (*models.UserSelection, error)
+	// FindByRole finds selections matching a specific role for a user/month.
+	FindByRole(ctx context.Context, userID, monthYear string, role models.SelectionRole) ([]*models.UserSelection, error)
+	// FindSelected finds the currently selected Muse or Ick for a user/month.
+	FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole) (*models.UserSelection, error)
+	Update(ctx context.Context, selectionID primitive.ObjectID, updates bson.M) (*models.UserSelection, error)
+	// UpdateRole updates only the role of a selection.
+	UpdateRole(ctx context.Context, selectionID primitive.ObjectID, newRole models.SelectionRole, updatedAt primitive.DateTime) error
+	Delete(ctx context.Context, selectionID primitive.ObjectID) error
+	ListByUserAndMonth(ctx context.Context, userID, monthYear string) ([]*models.UserSelection, error)
+	// GetByID retrieves a single selection by its MongoDB ObjectID.
+	GetByID(ctx context.Context, selectionID primitive.ObjectID) (*models.UserSelection, error)
+	// TODO: Add methods like ListByUserAndType, etc. if needed
+}
+
+type userSelectionDAOImpl struct {
+	collection *mongo.Collection
+}
+
+// NewUserSelectionDAO creates a new instance of UserSelectionDAO.
+func NewUserSelectionDAO(client *mongo.Client, dbName string, collectionName string) UserSelectionDAO {
+	collection := client.Database(dbName).Collection(collectionName)
+	// Create compound index for efficient lookups and potential uniqueness constraint
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "user_id", Value: 1},
+			{Key: "month_year", Value: 1},
+			{Key: "spotify_id", Value: 1},
+			{Key: "spotify_type", Value: 1},
+		},
+		Options: options.Index().SetUnique(true), // Ensure a user can only add the same item once per month
+	}
+	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
+	if err != nil {
+		// Log the error but don't necessarily fail startup
+		log.Printf("⚠️ Could not create unique index on user_selections collection: %v\n", err)
+	} else {
+		log.Println("✅ Unique index on user_selections collection ensured.")
+	}
+	// Add index for listing by user and month
+	listIndexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "user_id", Value: 1},
+			{Key: "month_year", Value: 1},
+		},
+	}
+	_, err = collection.Indexes().CreateOne(context.Background(), listIndexModel)
+	if err != nil {
+		log.Printf("⚠️ Could not create list index on user_selections collection: %v\n", err)
+	} else {
+		log.Println("✅ List index on user_selections collection ensured.")
+	}
+	// Add index for finding by role efficiently
+	roleIndexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "user_id", Value: 1},
+			{Key: "month_year", Value: 1},
+			{Key: "selection_role", Value: 1},
+		},
+	}
+	_, err = collection.Indexes().CreateOne(context.Background(), roleIndexModel)
+	if err != nil {
+		log.Printf("⚠️ Could not create role index on user_selections collection: %v\n", err)
+	} else {
+		log.Println("✅ Role index on user_selections collection ensured.")
+	}
+
+	log.Printf("Initializing UserSelectionDAO with collection: %s.%s", dbName, collectionName)
+	return &userSelectionDAOImpl{collection: collection}
+}
+
+// Create inserts a new user selection document.
+func (dao *userSelectionDAOImpl) Create(ctx context.Context, selection *models.UserSelection) (*models.UserSelection, error) {
+	selection.ID = primitive.NewObjectID() // Generate new ID
+	// Ensure AddedAt and UpdatedAt are set
+	now := primitive.NewDateTimeFromTime(time.Now())
+	if selection.AddedAt == 0 {
+		selection.AddedAt = now
+	}
+	selection.UpdatedAt = now
+	_, err := dao.collection.InsertOne(ctx, selection)
+	if err != nil {
+		// Handle potential duplicate key error due to unique index
+		if mongo.IsDuplicateKeyError(err) {
+			log.Printf("Attempted to create duplicate selection for user '%s', month '%s', item '%s (%s)'\n",
+				selection.UserID, selection.MonthYear, selection.SpotifyID, selection.SpotifyType)
+			// Return a specific error or the existing document
+			existing, findErr := dao.FindByUserMonthItem(ctx, selection.UserID, selection.MonthYear, selection.SpotifyID, selection.SpotifyType)
+			if findErr == nil && existing != nil {
+				return existing, fmt.Errorf("selection already exists: %w", err) // Wrap duplicate error
+			}
+			// If finding the existing one also failed, return the original insert error
+			return nil, fmt.Errorf("error creating selection (duplicate check failed): %w", err)
+		}
+		log.Printf("Error creating user selection: %v\n", err)
+		return nil, fmt.Errorf("error creating selection: %w", err)
+	}
+	log.Printf("Successfully created user selection with ID '%s'\n", selection.ID.Hex())
+	return selection, nil
+}
+
+// FindByUserMonthItem finds a specific selection entry.
+func (dao *userSelectionDAOImpl) FindByUserMonthItem(ctx context.Context, userID, monthYear, spotifyID string, spotifyType models.SpotifyItemType) (*models.UserSelection, error) {
+	var selection models.UserSelection
+	filter := bson.M{
+		"user_id":      userID,
+		"month_year":   monthYear,
+		"spotify_id":   spotifyID,
+		"spotify_type": spotifyType,
+	}
+	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, mongo.ErrNoDocuments
+		}
+		log.Printf("Error finding user selection by user/month/item: %v\n", err)
+		return nil, fmt.Errorf("error finding selection: %w", err)
+	}
+	return &selection, nil
+}
+
+// FindByRole finds selections matching a specific role for a user/month.
+func (dao *userSelectionDAOImpl) FindByRole(ctx context.Context, userID, monthYear string, role models.SelectionRole) ([]*models.UserSelection, error) {
+	filter := bson.M{
+		"user_id":        userID,
+		"month_year":     monthYear,
+		"selection_role": role,
+	}
+	cursor, err := dao.collection.Find(ctx, filter)
+	if err != nil {
+		log.Printf("Error finding selections by role '%s' for user '%s', month '%s': %v\n", role, userID, monthYear, err)
+		return nil, fmt.Errorf("could not retrieve selections by role: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var selections []*models.UserSelection
+	if err = cursor.All(ctx, &selections); err != nil {
+		log.Printf("Error decoding selections by role for user '%s', month '%s': %v\n", userID, monthYear, err)
+		return nil, fmt.Errorf("could not decode selections by role: %w", err)
+	}
+	if selections == nil {
+		selections = []*models.UserSelection{}
+	}
+	return selections, nil
+}
+
+// FindSelected finds the single currently selected Muse or Ick for a user/month.
+// Expects role to be RoleMuseSelected or RoleIckSelected.
+func (dao *userSelectionDAOImpl) FindSelected(ctx context.Context, userID, monthYear string, role models.SelectionRole) (*models.UserSelection, error) {
+	if role != models.RoleMuseSelected && role != models.RoleIckSelected {
+		return nil, fmt.Errorf("invalid role for FindSelected: %s", role)
+	}
+	var selection models.UserSelection
+	filter := bson.M{
+		"user_id":        userID,
+		"month_year":     monthYear,
+		"selection_role": role,
+	}
+	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, mongo.ErrNoDocuments // Not found is not an error here
+		}
+		log.Printf("Error finding selected item role '%s' for user '%s', month '%s': %v\n", role, userID, monthYear, err)
+		return nil, fmt.Errorf("error finding selected item: %w", err)
+	}
+	return &selection, nil
+}
+
+// Update modifies an existing user selection.
+func (dao *userSelectionDAOImpl) Update(ctx context.Context, selectionID primitive.ObjectID, updates bson.M) (*models.UserSelection, error) {
+	filter := bson.M{"_id": selectionID}
+	update := bson.M{"$set": updates}
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After) // Return the updated document
+
+	var updatedSelection models.UserSelection
+	err := dao.collection.FindOneAndUpdate(ctx, filter, update, opts).Decode(&updatedSelection)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			log.Printf("No user selection found with ID '%s' to update\n", selectionID.Hex())
+			return nil, mongo.ErrNoDocuments
+		}
+		log.Printf("Error updating user selection with ID '%s': %v\n", selectionID.Hex(), err)
+		return nil, fmt.Errorf("error updating selection: %w", err)
+	}
+	log.Printf("Successfully updated user selection with ID '%s'\n", selectionID.Hex())
+	return &updatedSelection, nil
+}
+
+// UpdateRole updates only the role and updated_at timestamp of a selection.
+func (dao *userSelectionDAOImpl) UpdateRole(ctx context.Context, selectionID primitive.ObjectID, newRole models.SelectionRole, updatedAt primitive.DateTime) error {
+	filter := bson.M{"_id": selectionID}
+	update := bson.M{"$set": bson.M{
+		"selection_role": newRole,
+		"updated_at":     updatedAt,
+	}}
+	result, err := dao.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Printf("Error updating role for selection ID '%s': %v\n", selectionID.Hex(), err)
+		return fmt.Errorf("error updating selection role: %w", err)
+	}
+	if result.MatchedCount == 0 {
+		log.Printf("No selection found with ID '%s' to update role\n", selectionID.Hex())
+		return mongo.ErrNoDocuments
+	}
+	log.Printf("Successfully updated role for selection ID '%s' to '%s'\n", selectionID.Hex(), newRole)
+	return nil
+}
+
+// Delete removes a user selection document.
+func (dao *userSelectionDAOImpl) Delete(ctx context.Context, selectionID primitive.ObjectID) error {
+	filter := bson.M{"_id": selectionID}
+	result, err := dao.collection.DeleteOne(ctx, filter)
+	if err != nil {
+		log.Printf("Error deleting user selection with ID '%s': %v\n", selectionID.Hex(), err)
+		return fmt.Errorf("error deleting selection: %w", err)
+	}
+	if result.DeletedCount == 0 {
+		log.Printf("No user selection found with ID '%s' to delete\n", selectionID.Hex())
+		return mongo.ErrNoDocuments // Indicate not found
+	}
+	log.Printf("Successfully deleted user selection with ID '%s'\n", selectionID.Hex())
+	return nil
+}
+
+// ListByUserAndMonth retrieves all selections for a specific user and month.
+func (dao *userSelectionDAOImpl) ListByUserAndMonth(ctx context.Context, userID, monthYear string) ([]*models.UserSelection, error) {
+	filter := bson.M{"user_id": userID, "month_year": monthYear}
+	cursor, err := dao.collection.Find(ctx, filter)
+	if err != nil {
+		log.Printf("Error listing selections for user '%s', month '%s': %v\n", userID, monthYear, err)
+		return nil, fmt.Errorf("could not retrieve selections: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var selections []*models.UserSelection
+	if err = cursor.All(ctx, &selections); err != nil {
+		log.Printf("Error decoding selections for user '%s', month '%s': %v\n", userID, monthYear, err)
+		return nil, fmt.Errorf("could not decode selections: %w", err)
+	}
+
+	// Return empty slice if no selections found, not nil
+	if selections == nil {
+		selections = []*models.UserSelection{}
+	}
+
+	return selections, nil
+}
+
+// GetByID retrieves a single selection by its MongoDB ObjectID.
+func (dao *userSelectionDAOImpl) GetByID(ctx context.Context, selectionID primitive.ObjectID) (*models.UserSelection, error) {
+	var selection models.UserSelection
+	filter := bson.M{"_id": selectionID}
+	err := dao.collection.FindOne(ctx, filter).Decode(&selection)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, mongo.ErrNoDocuments // Return specific error for not found
+		}
+		log.Printf("Error finding user selection by ID '%s': %v\n", selectionID.Hex(), err)
+		return nil, fmt.Errorf("error finding selection by ID: %w", err)
+	}
+	return &selection, nil
+}

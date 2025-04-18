@@ -6,7 +6,11 @@ const AlbumsPage: React.FC = () => {
   const currentYear = new Date().getFullYear(); // Or get from state/context/props
 
   return (
-    <SelectionPageLayout itemType="album" year={currentYear} />
+    <SelectionPageLayout 
+      itemType="album" 
+      year={currentYear} 
+      pageTitle="Album Selection"
+    />
   );
 };
 

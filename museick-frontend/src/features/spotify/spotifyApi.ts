@@ -9,6 +9,24 @@ import {
 
 const BASE_URL = 'https://api.spotify.com/v1';
 
+export class SpotifyAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SpotifyAuthError';
+  }
+}
+
+export async function handleSpotifyResponse(response: Response) {
+  if (response.status === 401) {
+    throw new SpotifyAuthError('Spotify authentication required');
+  }
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Unknown error occurred');
+  }
+  return data;
+}
+
 /**
  * Performs a fetch request to the Spotify API, automatically including the access token.
  * @param endpoint The specific API endpoint (e.g., '/me/top/tracks').
@@ -122,6 +140,18 @@ export const getMyTopTracks = async (
     const data = await _fetchSpotifyApi<SpotifyUserTopItems<SpotifyTrackItem>>(endpoint);
 
     return data?.items ?? []; // Return the items array or empty array
+};
+
+/**
+ * Fetches details for a specific Spotify item (track, artist, or album) by ID and type.
+ */
+export const getSpotifyItemDetails = async (
+  id: string,
+  type: 'track' | 'artist' | 'album'
+): Promise<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem> => {
+  const endpoint = `/${type}s/${id}`; // Use plural 'tracks', 'artists', 'albums'
+  const data = await _fetchSpotifyApi<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint);
+  return data;
 };
 
 // TODO: Add other direct Spotify API call functions here...

@@ -62,12 +62,12 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
 
   const handlePlayClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (itemType === 'track' && itemData && 'preview_url' in itemData && itemData.preview_url) {
-        console.log(`Play button clicked for ${monthName}. Preview URL: ${itemData.preview_url}`);
-        // TODO: Implement playback (e.g., using Howler.js or Web Audio API)
-        alert(`Playing preview for: ${itemData.name}`); // Placeholder
+    if (itemType === 'song' && itemData && 'preview_url' in itemData && itemData.preview_url) {
+      console.log(`Play button clicked for ${monthName}. Preview URL: ${itemData.preview_url}`);
+      // TODO: Implement playback (e.g., using Howler.js or Web Audio API)
+      alert(`Playing preview for: ${itemData.name}`); // Placeholder
     } else {
-        console.log(`Play button clicked for ${monthName}, but no preview URL available.`);
+      console.log(`Play button clicked for ${monthName}, but no preview URL available.`);
     }
   };
 
@@ -85,7 +85,7 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
   const primaryText = getPrimaryText(itemData, monthName);
   const secondaryText = itemData ? getSecondaryText(itemData) : 'No selection';
   const imageUrl = getImageUrl(itemData); // Uses the corrected helper
-  const canPlay = itemType === 'track' && itemData && 'preview_url' in itemData && !!itemData.preview_url;
+  const canPlay = itemType === 'song' && itemData && 'preview_url' in itemData && !!itemData.preview_url;
 
   const PlaceholderIcon = itemType === 'artist' ? PersonIcon : itemType === 'album' ? AlbumIcon : MusicNoteIcon;
 
@@ -94,7 +94,7 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
       elevation={isExpanded ? 6 : 2} // Increase elevation when expanded
       sx={{
         aspectRatio: '1 / 1', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
-        border: mode === 'leastFavorite' ? `2px solid ${theme.palette.error.light}` : `2px solid transparent`,
+        border: mode === 'ick' ? `2px solid ${theme.palette.error.light}` : `2px solid transparent`,
         transition: theme.transitions.create(['border-color', 'box-shadow']),
         '&:hover': { boxShadow: isExpanded ? 6 : 3 }, // Keep higher shadow on hover if expanded
         '&:active': { boxShadow: 1 }

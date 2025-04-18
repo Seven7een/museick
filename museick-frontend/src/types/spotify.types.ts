@@ -1,3 +1,5 @@
+import { SelectionRole } from './museick.types'; // Import SelectionRole
+
 // Define interfaces for items returned by the Spotify API,
 // particularly for search results and potentially other endpoints.
 
@@ -36,6 +38,8 @@ export interface SpotifyImage {
     preview_url?: string | null; // Important for playback snippets
     duration_ms?: number;
     popularity?: number;
+    selectionId?: string;
+    selectionRole?: SelectionRole;
     // TODO: Add other fields as needed (e.g., is_playable, available_markets)
   }
 
@@ -48,6 +52,8 @@ export interface SpotifyImage {
     genres: string[];
     popularity?: number;
     followers?: { total: number };
+    selectionId?: string;
+    selectionRole?: SelectionRole;
     // TODO: Add other fields as needed (e.g., type, uri)
   }
 
@@ -62,6 +68,8 @@ export interface SpotifyImage {
     total_tracks?: number;
     popularity?: number;
     genres?: string[]; // Albums might have genres too
+    selectionId?: string;
+    selectionRole?: SelectionRole;
     // TODO: Add other fields as needed (e.g., album_type, label, copyrights)
   }
 
@@ -85,6 +93,6 @@ export interface SpotifyImage {
 
 export type SpotifyGridItem = SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem;
 
-export type GridMode = 'favorite' | 'leastFavorite'; // Or 'muse' | 'ick'
+export type GridMode = 'muse' | 'ick';
 
-export type GridItemType = 'track' | 'artist' | 'album';
+export type GridItemType = 'song' | 'artist' | 'album';

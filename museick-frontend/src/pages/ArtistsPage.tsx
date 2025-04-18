@@ -6,7 +6,11 @@ const ArtistsPage: React.FC = () => {
   const currentYear = new Date().getFullYear(); // Or get from state/context/props
 
   return (
-    <SelectionPageLayout itemType="artist" year={currentYear} />
+    <SelectionPageLayout 
+      itemType="artist" 
+      year={currentYear} 
+      pageTitle="Artist Selection"
+    />
   );
 };
 

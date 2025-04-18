@@ -1,17 +1,27 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, IconButton, Box, Typography,
   List, ListItem, ListItemAvatar, Avatar, ListItemText, Button, Divider,
   TextField, CircularProgress, Alert, Chip, useTheme
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StarIcon from '@mui/icons-material/Star';
-import { MusicNote as MusicNoteIcon, Person as PersonIcon, Album as AlbumIcon } from '@mui/icons-material';
 
-import { SpotifyGridItem, GridMode, GridItemType } from '@/types/spotify.types';
-import { searchSpotify } from '@/features/spotify/spotifyApi';
+import { SpotifyGridItem, GridItemType } from '@/types/spotify.types';
+import { SelectionRole } from '@/types/museick.types';
+import { searchSpotify, SpotifyAuthError } from '@/features/spotify/spotifyApi';
+import { addSelectionCandidate, updateSelection } from '@/services/selectionApi';
+
+const DEBOUNCE_DELAY = 500;
+const MIN_SEARCH_LENGTH = 3;
+
+type DisplayListItem = SpotifyGridItem & {
+    type: GridItemType;
+    selectionId?: string;
+    selectionRole?: SelectionRole;
+};
 
 interface SelectionReplaceModalProps {
   open: boolean;
@@ -19,175 +29,193 @@ interface SelectionReplaceModalProps {
   monthIndex: number | null;
   monthName: string;
   year: number;
-  currentItem: SpotifyGridItem | undefined;
-  onSelectReplacement: (monthIndex: number, newItem: SpotifyGridItem) => void;
-  mode: GridMode;
+  onSelectReplacement: (item: DisplayListItem | null, monthIndex: number | null) => void;
+  mode: 'muse' | 'ick';
   itemType: GridItemType;
+  currentItem: SpotifyGridItem | undefined;
 }
 
-const useMockShortlist = (
-    currentItem: SpotifyGridItem | undefined,
-    mode: GridMode,
-    itemType: GridItemType,
-    monthName: string,
-    year: number
-) => {
-  const [shortlist, setShortlist] = useState<SpotifyGridItem[]>(() =>
-    currentItem ? [currentItem] : []
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const addToShortlist = async (item: SpotifyGridItem) => {
-    setLoading(true); setError(null);
-    console.log(`MOCK: Adding ${item.name} (${itemType}) to ${monthName} ${year} ${mode} shortlist (Backend Call)...`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setShortlist(prev => { if (prev.some(i => i.id === item.id)) return prev; return [...prev, item]; });
-    setLoading(false);
-  };
-
-  const selectItem = async (monthIndex: number, item: SpotifyGridItem) => {
-    setLoading(true); setError(null);
-    console.log(`MOCK: Selecting ${item.name} (${itemType}) for ${monthName} ${year} ${mode} slot (Backend Call)...`);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setLoading(false);
-    return item;
-  };
-
-  useEffect(() => {
-    console.log("Current item changed, resetting shortlist state.");
-    setShortlist(currentItem ? [currentItem] : []);
-  }, [currentItem]);
-
-  return { shortlist, addToShortlist, selectItem, loadingShortlist: loading, errorShortlist: error };
+const getImageUrl = (item: DisplayListItem | SpotifyGridItem): string => {
+    if ('album' in item && item.album && item.album.images) {
+      return item.album.images?.[item.album.images.length - 1]?.url ?? '';
+    }
+    if ('images' in item && item.images) {
+      return item.images?.[item.images.length - 1]?.url ?? '';
+    }
+    return '';
 };
 
-const DEBOUNCE_DELAY = 500;
-const MIN_SEARCH_LENGTH = 3;
+const getItemTitle = (item: DisplayListItem | SpotifyGridItem): string => item.name ?? 'Unknown Title';
 
-const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
-  open, onClose, monthIndex, monthName, year, currentItem, onSelectReplacement, mode, itemType
+const getItemSubtitle = (item: DisplayListItem | SpotifyGridItem): string => {
+    if ('artists' in item && item.artists && 'album' in item) {
+      return item.artists.map(a => a.name).join(', ');
+    }
+    if ('artists' in item && item.artists && 'release_date' in item) {
+        return item.artists.map(a => a.name).join(', ');
+    }
+    if ('genres' in item && item.genres) {
+      return item.genres.join(', ') || 'Artist';
+    }
+    return '';
+};
+
+export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
+  open, onClose, monthIndex, monthName, year, onSelectReplacement, mode, itemType, currentItem
 }) => {
   const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<SpotifyGridItem[]>([]);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-  const [errorSearch, setErrorSearch] = useState('');
-  const [hasSearched, setHasSearched] = useState(false);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [displayedItems, setDisplayedItems] = useState<DisplayListItem[]>([]);
+  const [shortlistItems, setShortlistItems] = useState<DisplayListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const { shortlist, addToShortlist, selectItem, loadingShortlist, errorShortlist } = useMockShortlist(
-      currentItem,
-      mode,
-      itemType,
-      monthName,
-      year
-  );
+  const targetCandidateRole: SelectionRole = mode === 'muse' ? 'muse_candidate' : 'ick_candidate';
+  const targetSelectedRole: SelectionRole = mode === 'muse' ? 'muse_selected' : 'ick_selected';
+  // Format month_year as YYYY-MM
+  const candidateMonthYear = `${year}-${(monthIndex! + 1).toString().padStart(2, '0')}`;
 
   useEffect(() => {
     if (open) {
       setSearchTerm('');
-      setSearchResults([]);
-      setLoadingSearch(false);
-      setErrorSearch('');
-      setHasSearched(false);
+      setShortlistItems(currentItem ? [currentItem as DisplayListItem] : []);
+      setDisplayedItems([]);
+      setError(null);
+      setLoading(false);
+      setActionLoading(null);
     }
-  }, [open, monthIndex]);
-
-  const triggerApiSearch = useCallback(async (query: string) => {
-     if (!query || query.length < MIN_SEARCH_LENGTH) {
-       setSearchResults([]);
-       setHasSearched(query.length > 0);
-       setErrorSearch('');
-       setLoadingSearch(false);
-       return;
-     }
-     setLoadingSearch(true);
-     setErrorSearch('');
-     setHasSearched(true);
-     try {
-       const searchData = await searchSpotify(query);
-       let relevantResults: SpotifyGridItem[] = [];
-       switch (itemType) {
-           case 'track': relevantResults = searchData.tracks; break;
-           case 'artist': relevantResults = searchData.artists; break;
-           case 'album': relevantResults = searchData.albums; break;
-           default: relevantResults = [];
-       }
-       setSearchResults(relevantResults);
-     } catch (err: any) {
-       console.error("Modal Search Error:", err);
-       setErrorSearch(err.message || `Error searching Spotify for ${itemType}s`);
-       setSearchResults([]);
-     } finally {
-       setLoadingSearch(false);
-     }
-  }, [itemType]);
+  }, [open, year, mode, itemType, currentItem]);
 
   useEffect(() => {
-     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-     const trimmedSearchTerm = searchTerm.trim();
-     if (trimmedSearchTerm.length < MIN_SEARCH_LENGTH) {
-       setSearchResults([]);
-       setHasSearched(trimmedSearchTerm.length > 0);
-       setErrorSearch('');
-       setLoadingSearch(false);
-       return;
-     }
-     setLoadingSearch(true);
-     setErrorSearch('');
-     setHasSearched(true);
-     debounceTimeoutRef.current = setTimeout(() => {
-       triggerApiSearch(trimmedSearchTerm);
-     }, DEBOUNCE_DELAY);
-     return () => {
-       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-     };
-  }, [searchTerm, triggerApiSearch]);
+    const handler = setTimeout(() => {
+      if (searchTerm.trim()) {
+        handleSearch();
+      } else {
+        setDisplayedItems([]);
+      }
+    }, DEBOUNCE_DELAY);
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-  };
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm, itemType]);
 
-  const handleAddClick = async (item: SpotifyGridItem) => {
-    await addToShortlist(item);
-  };
+  const handleSearch = useCallback(async () => {
+    if (searchTerm.trim().length < MIN_SEARCH_LENGTH) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      // Map 'song' to 'track' for Spotify API
+      const spotifyType = itemType === 'song' ? 'track' : itemType;
+      const results = await searchSpotify(searchTerm, [spotifyType], 20);
+      let spotifyResults: DisplayListItem[] = [];
 
-  const handleSelectClick = async (item: SpotifyGridItem) => {
-    if (monthIndex === null) return;
-    const selected = await selectItem(monthIndex, item);
-    if (selected) {
-      onSelectReplacement(monthIndex, selected);
-      onClose();
+      if (itemType === 'song' && results.tracks) {
+        spotifyResults = results.tracks.map(track => ({ ...track, type: 'song' }));
+      } else if (itemType === 'artist' && results.artists) {
+        spotifyResults = results.artists.map(artist => ({ ...artist, type: 'artist' }));
+      } else if (itemType === 'album' && results.albums) {
+        spotifyResults = results.albums.map(album => ({ ...album, type: 'album' }));
+      }
+
+      setDisplayedItems(spotifyResults);
+
+    } catch (err: any) {
+      console.error("Error searching Spotify:", err);
+      if (err instanceof SpotifyAuthError) {
+        setError("Spotify connection issue. Please reconnect Spotify via the main page.");
+      } else {
+        setError(`Spotify search failed: ${err.message}`);
+      }
+      setDisplayedItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, itemType]);
+
+  const handleAddCandidate = async (item: DisplayListItem) => {
+    if (!item.id || !item.type) {
+        console.error("Cannot add candidate: Missing Spotify ID or type", item);
+        setError("Cannot add candidate: Missing Spotify ID or type.");
+        return;
+    }
+    const loadingId = item.selectionId || item.id;
+    setActionLoading(loadingId);
+    setError(null);
+    
+    try {
+      const addedSelection = await addSelectionCandidate(item.id, item.type, candidateMonthYear, targetCandidateRole);
+      const newItem: DisplayListItem = {
+        ...item,
+        selectionId: addedSelection.id,
+        selectionRole: addedSelection.selection_role,
+      };
+
+      setShortlistItems(prev => [...prev, newItem]);
+      
+    } catch (err: any) {
+      console.error("Error adding candidate:", err);
+      if (err instanceof SpotifyAuthError) {
+        setError("Please reconnect your Spotify account on the main page");
+      } else {
+        setError(`Failed to add candidate: ${err.message}`);
+      }
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const getImageUrl = (item?: SpotifyGridItem): string | undefined => {
-      if (!item) return undefined;
-      if ('album' in item && item.album?.images) {
-        return item.album.images[item.album.images.length - 1]?.url ?? item.album.images[0]?.url;
-      }
-      if ('images' in item && item.images) {
-        return item.images[item.images.length - 1]?.url ?? item.images[0]?.url;
-      }
-      return undefined;
+  const handleSelectMain = async (item: DisplayListItem) => {
+    if (monthIndex === null) {
+        console.error("Cannot select for month: monthIndex is null.");
+        setError("Cannot select for month: monthIndex is null.");
+        return;
+    }
+    const loadingId = item.selectionId || item.id;
+    setActionLoading(loadingId);
+    setError(null);
+
+    try {
+        let finalItem = item;
+        if (!item.selectionId) {
+            if (!item.id || !item.type) {
+                throw new Error("Missing Spotify ID or type for selection.");
+            }
+            const addedSelection = await addSelectionCandidate(item.id, item.type, candidateMonthYear, targetCandidateRole);
+            finalItem = { ...item, selectionId: addedSelection.id, selectionRole: addedSelection.selection_role };
+            setShortlistItems(prev => [...prev, finalItem]);
+        }
+
+        const updatedSelection = await updateSelection(finalItem.selectionId!, {
+            selection_role: targetSelectedRole,
+        });
+
+        const selectedItem: DisplayListItem = {
+            ...finalItem,
+            selectionId: updatedSelection.id,
+            selectionRole: updatedSelection.selection_role,
+            id: updatedSelection.spotify_id || finalItem.id,
+        };
+
+        onSelectReplacement(selectedItem, monthIndex);
+        onClose();
+
+    } catch (err: any) {
+        console.error("Error selecting item:", err);
+        if (err instanceof SpotifyAuthError) {
+          setError("Please reconnect your Spotify account on the main page");
+        } else {
+          setError(`Failed to select item: ${err.message}`);
+        }
+        setActionLoading(null);
+    }
   };
 
-  const getSecondaryText = (item: SpotifyGridItem): string => {
-      if ('artists' in item && item.artists) {
-        return item.artists.map(a => a.name).join(', ');
-      }
-      if ('genres' in item && item.genres && item.genres.length > 0) {
-        return item.genres.slice(0, 2).join(', ');
-      }
-      return '';
-  };
-
-  const isShortlisted = (itemId: string) => shortlist.some(item => item.id === itemId);
+  const isShortlisted = (itemId: string) => shortlistItems.some(item => item.id === itemId);
   const isCurrentSelection = (itemId: string) => currentItem?.id === itemId;
-  const searchLabel = `Search for a ${itemType}`;
-  const noResultsText = `No ${itemType}s found.`;
-  const modalTitle = `Replace ${itemType} for ${monthName} ${year} (${mode === 'favorite' ? 'Muse' : 'Ick'})`;
+  const modalTitle = `Replace ${itemType} for ${monthName} ${year} (${mode === 'muse' ? 'Muse' : 'Ick'})`;
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
@@ -198,28 +226,35 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
         </IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+        {/* Shortlist Panel */}
         <Box sx={{ width: { xs: '100%', md: '40%' }, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6" gutterBottom>Shortlist for {monthName}</Typography>
-          {loadingShortlist && <CircularProgress size={24} sx={{ alignSelf: 'center', my: 2 }} />}
-          {errorShortlist && <Alert severity="error" sx={{ mb: 1 }}>{errorShortlist}</Alert>}
-          {!loadingShortlist && shortlist.length === 0 && <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>No {itemType}s shortlisted yet for {monthName}.</Typography>}
-          {!loadingShortlist && shortlist.length > 0 && (
+          {actionLoading && <CircularProgress size={24} sx={{ alignSelf: 'center', my: 2 }} />}
+          {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+          {!actionLoading && shortlistItems.length === 0 && (
+            <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+              No {itemType}s shortlisted yet for {monthName}.
+            </Typography>
+          )}
+          {!actionLoading && shortlistItems.length > 0 && (
             <List dense sx={{ flexGrow: 1, overflowY: 'auto', bgcolor: 'background.paper', borderRadius: 1 }}>
-              {shortlist.map((item) => (
+              {shortlistItems.map((item) => (
                 <ListItem key={item.id}
                   secondaryAction={
                     isCurrentSelection(item.id)
                       ? ( <Chip icon={<StarIcon />} label="Current" size="small" color="secondary" variant="outlined" /> )
-                      : ( <Button size="small" variant="outlined" onClick={() => handleSelectClick(item)} disabled={loadingShortlist} startIcon={<CheckCircleIcon />}> Select </Button> )
+                      : ( <Button size="small" variant="outlined" onClick={() => handleSelectMain(item)} disabled={!!actionLoading}
+                          startIcon={<CheckCircleIcon />}> Select </Button> )
                   }
-                  sx={{ bgcolor: isCurrentSelection(item.id) ? theme.palette.action.selected : 'inherit', borderRadius: 1, mb: 0.5 }}
+                  sx={{ bgcolor: isCurrentSelection(item.id) ? theme.palette.action.selected : 'inherit', 
+                       borderRadius: 1, mb: 0.5 }}
                 >
                   <ListItemAvatar>
                     <Avatar variant="square" src={getImageUrl(item)} alt={item.name} />
                   </ListItemAvatar>
                   <ListItemText
-                    primary={item.name}
-                    secondary={getSecondaryText(item)}
+                    primary={getItemTitle(item)}
+                    secondary={getItemSubtitle(item)}
                     primaryTypographyProps={{ noWrap: true }}
                     secondaryTypographyProps={{ noWrap: true }}
                   />
@@ -232,36 +267,45 @@ const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
         <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
         <Divider sx={{ display: { xs: 'block', md: 'none' }, my: 2 }} />
 
+        {/* Search Panel */}
         <Box sx={{ width: { xs: '100%', md: '60%' }, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="h6" gutterBottom>Search Spotify</Typography>
           <TextField
             fullWidth
-            label={searchLabel}
+            label={`Search for a ${itemType}`}
             variant="outlined"
             value={searchTerm}
-            onChange={handleInputChange}
+            onChange={(e) => setSearchTerm(e.target.value)}
             size="small"
             sx={{ mb: 2 }}
           />
-          {loadingSearch && <CircularProgress size={24} sx={{ alignSelf: 'center', my: 2 }} />}
-          {errorSearch && !loadingSearch && <Alert severity="error" sx={{ mb: 1 }}>{errorSearch}</Alert>}
-          {!loadingSearch && hasSearched && searchResults.length === 0 && <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>{noResultsText}</Typography>}
-          {!loadingSearch && searchResults.length > 0 && (
+          {loading && <CircularProgress size={24} sx={{ alignSelf: 'center', my: 2 }} />}
+          {!loading && displayedItems.length === 0 && searchTerm && searchTerm.length >= MIN_SEARCH_LENGTH && (
+            <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+              No {itemType}s found.
+            </Typography>
+          )}
+          {!loading && displayedItems.length > 0 && (
             <List dense sx={{ flexGrow: 1, overflowY: 'auto', bgcolor: 'background.paper', borderRadius: 1 }}>
-              {searchResults.map((item) => (
+              {displayedItems.map((item) => (
                 <ListItem key={item.id}
                   secondaryAction={
                     isShortlisted(item.id)
                       ? ( <Chip label="Added" size="small" variant="outlined" /> )
-                      : ( <IconButton edge="end" aria-label="add to shortlist" onClick={() => handleAddClick(item)} disabled={loadingShortlist} color="primary"> <AddCircleIcon /> </IconButton> )
+                      : ( <IconButton edge="end" aria-label="add to shortlist" 
+                          onClick={() => handleAddCandidate(item)} 
+                          disabled={!!actionLoading}
+                          color="primary">
+                          <AddCircleOutlineIcon />
+                        </IconButton> )
                   }
                 >
                   <ListItemAvatar>
                     <Avatar variant="square" src={getImageUrl(item)} alt={item.name} />
                   </ListItemAvatar>
                   <ListItemText
-                    primary={item.name}
-                    secondary={getSecondaryText(item)}
+                    primary={getItemTitle(item)}
+                    secondary={getItemSubtitle(item)}
                     primaryTypographyProps={{ noWrap: true }}
                     secondaryTypographyProps={{ noWrap: true }}
                   />

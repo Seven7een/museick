@@ -9,22 +9,463 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.swagger.io/support",
+            "email": "support@swagger.io"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/api/selections": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adds a Spotify item (song, album, artist) to the user's candidate list (Muse or Ick) for a specific month.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "selections"
+                ],
+                "summary": "Add a selection candidate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Candidate Selection Data",
+                        "name": "selection",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateSelectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Selection already existed",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserSelection"
+                        }
+                    },
+                    "201": {
+                        "description": "Selection candidate created successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserSelection"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input format or data",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/selections/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the role (e.g., candidate to selected) or notes of a specific selection. Handles demotion of previous selection if needed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "selections"
+                ],
+                "summary": "Update a selection's role or notes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Selection ID (MongoDB ObjectID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fields to update (selection_role and/or notes)",
+                        "name": "selection",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.UpdateSelectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Selection updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.UserSelection"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input format, data, or ID",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (selection does not belong to user)",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Selection not found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a specific user selection (candidate or selected).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "selections"
+                ],
+                "summary": "Delete a selection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Selection ID (MongoDB ObjectID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Selection deleted successfully"
+                    },
+                    "400": {
+                        "description": "Invalid ID format",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden (selection does not belong to user)",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "404": {
+                        "description": "Selection not found",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/selections/{monthYear}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieves all selections (candidates and selected) for the authenticated user for a specific month.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "selections"
+                ],
+                "summary": "List selections by month",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "YYYY-MM",
+                        "example": "2024-07",
+                        "description": "Month and Year (YYYY-MM)",
+                        "name": "monthYear",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of selections",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.UserSelection"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid monthYear format",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/gin.H"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "gin.H": {
+            "type": "object",
+            "additionalProperties": {}
+        },
+        "handlers.CreateSelectionRequest": {
+            "type": "object",
+            "required": [
+                "month_year",
+                "selection_role",
+                "spotify_id",
+                "spotify_type"
+            ],
+            "properties": {
+                "month_year": {
+                    "description": "\"YYYY-MM\"",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "Optional",
+                    "type": "string"
+                },
+                "selection_role": {
+                    "description": "\"muse_candidate\" or \"ick_candidate\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SelectionRole"
+                        }
+                    ]
+                },
+                "spotify_id": {
+                    "type": "string"
+                },
+                "spotify_type": {
+                    "description": "\"song\", \"album\", or \"artist\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SpotifyItemType"
+                        }
+                    ]
+                }
+            }
+        },
+        "handlers.UpdateSelectionRequest": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "description": "Pointer",
+                    "type": "string"
+                },
+                "selection_role": {
+                    "description": "Pointer to distinguish between not provided and empty string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SelectionRole"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.SelectionRole": {
+            "type": "string",
+            "enum": [
+                "muse_candidate",
+                "ick_candidate",
+                "muse_selected",
+                "ick_selected"
+            ],
+            "x-enum-varnames": [
+                "RoleMuseCandidate",
+                "RoleIckCandidate",
+                "RoleMuseSelected",
+                "RoleIckSelected"
+            ]
+        },
+        "models.SpotifyItemType": {
+            "type": "string",
+            "enum": [
+                "song",
+                "album",
+                "artist"
+            ],
+            "x-enum-comments": {
+                "SpotifyItemTypeSong": "Renamed from track"
+            },
+            "x-enum-varnames": [
+                "SpotifyItemTypeSong",
+                "SpotifyItemTypeAlbum",
+                "SpotifyItemTypeArtist"
+            ]
+        },
+        "models.UserSelection": {
+            "type": "object",
+            "properties": {
+                "added_at": {
+                    "description": "When the user first added this item for this role/month",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "month_year": {
+                    "description": "Format: \"YYYY-MM\", e.g., \"2024-07\"",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "Optional user notes",
+                    "type": "string"
+                },
+                "selection_role": {
+                    "description": "\"muse_candidate\", \"ick_candidate\", \"muse_selected\", \"ick_selected\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SelectionRole"
+                        }
+                    ]
+                },
+                "spotify_id": {
+                    "description": "ID of the Song/Album/Artist",
+                    "type": "string"
+                },
+                "spotify_type": {
+                    "description": "\"song\", \"album\", or \"artist\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.SpotifyItemType"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "description": "When the selection was last modified",
+                    "type": "integer"
+                },
+                "user_id": {
+                    "description": "Clerk User ID (sub)",
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/",
+	Schemes:          []string{"http", "https"},
+	Title:            "Museick API",
+	Description:      "This is the backend API for the Museick application. It manages user data, Spotify interactions, and Muse/Ick selections.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

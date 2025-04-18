@@ -49,6 +49,7 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Server configuration error"})
 			return
 		}
+
 		client, ok := clerkClientValue.(clerk.Client)
 		if !ok {
 			log.Println("❌ Invalid Clerk client type in context.")
@@ -58,40 +59,30 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
+			log.Println("❌ No Authorization header present")
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			log.Printf("❌ Invalid Authorization header format: %s", authHeader)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
 			return
 		}
 		sessionToken := parts[1]
+		log.Printf("🔍 Attempting to verify token: %s...", sessionToken[:10]) // Show first 10 chars for debugging
 
 		sessClaims, err := client.VerifyToken(sessionToken)
 		if err != nil {
 			log.Printf("⚠️ Clerk token verification failed: %v\n", err)
-
-			// Use errors.Is to check for specific JWT errors in v5
 			if errors.Is(err, jwt.ErrTokenExpired) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
 			} else {
-				// Handle other verification errors (invalid signature, malformed token, etc.)
-				// You could add more specific checks here if needed using errors.Is
-				// e.g., errors.Is(err, jwt.ErrTokenMalformed), errors.Is(err, jwt.ErrTokenSignatureInvalid)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Token verification failed"})
 			}
 			return
 		}
-
-		// TODO: Optional: Check if session is active via Clerk API
-		// session, err := client.Sessions().Read(sessClaims.SessionID)
-		// if err != nil || session.Status != clerk.SessionStatusActive {
-		//  log.Printf("⚠️ Clerk session %s is not active or lookup failed: %v\n", sessClaims.SessionID, err)
-		// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Session is not active"})
-		// 	return
-		// }
 
 		userID := sessClaims.Subject
 		if userID == "" {
@@ -100,12 +91,9 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 			return
 		}
 
+		log.Printf("✅ Successfully authenticated user: %s", userID)
 		c.Set(ClerkClaimsKey, sessClaims)
 		c.Set(ClerkUserIDKey, userID)
-
-		// Log successful authentication (optional)
-		// log.Printf("✅ User %s authenticated successfully.\n", userID)
-
 		c.Next()
 	}
 }

@@ -14,11 +14,17 @@ import ArtistsPage from '@/pages/ArtistsPage';
 import AlbumsPage from '@/pages/AlbumsPage';
 
 import { syncUserWithBackend } from '@/features/api/backendApi';
+import { initializeAuthToken } from '@/services/selectionApi';
 
 // Main App Content Component (to allow hooks within Router context)
 const AppContent: React.FC = () => {
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const [hasSyncedUser, setHasSyncedUser] = useState(false); // Flag for Clerk user sync
+
+  // Initialize the auth token getter immediately
+  useEffect(() => {
+    initializeAuthToken(getToken);
+  }, [getToken]);
 
   // Effect: Sync Clerk User with Backend & Handle Logout Cleanup
   useEffect(() => {

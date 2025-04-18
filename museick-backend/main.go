@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context" // Add context import
 	"log"
 	"net/http"
 	"time"
@@ -32,7 +33,7 @@ func init() {
 
 // @title Museick API
 // @version 1.0
-// @description This is the backend API for the Museick application.
+// @description This is the backend API for the Museick application. It manages user data, Spotify interactions, and Muse/Ick selections.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
@@ -57,22 +58,34 @@ func main() {
 	if err != nil {
 		log.Fatal("❌ Could not connect to MongoDB:", err)
 	}
-	// TODO: Add defer client.Disconnect(context.Background()) for graceful shutdown
+	// Add defer client.Disconnect for graceful shutdown
+	defer func() {
+		if err = client.Disconnect(context.Background()); err != nil {
+			log.Printf("Error disconnecting from MongoDB: %v", err)
+		} else {
+			log.Println("MongoDB connection closed.")
+		}
+	}()
 
 	// --- Dependency Injection ---
+	// Core DAOs
 	userDAO := dao.NewUserDAO(client, config.MongoDBName, "users")
-	// TODO: Instantiate SongDAO
-	// songDAO := dao.NewSongDAO(client, config.MongoDBName, "songs")
+	spotifySongDAO := dao.NewSpotifySongDAO(client, config.MongoDBName, "spotify_songs") // Renamed
+	spotifyAlbumDAO := dao.NewSpotifyAlbumDAO(client, config.MongoDBName, "spotify_albums")
+	spotifyArtistDAO := dao.NewSpotifyArtistDAO(client, config.MongoDBName, "spotify_artists")
+	userSelectionDAO := dao.NewUserSelectionDAO(client, config.MongoDBName, "user_selections")
 
+	// Core Services
 	userService := services.NewUserService(userDAO)
-	// TODO: Instantiate SongService
-	// songService := services.NewSongService(songDAO)
-	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)
+	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)                              // Handles basic auth, token exchange
+	spotifySyncService := services.NewSpotifySyncService(spotifySongDAO, spotifyAlbumDAO, spotifyArtistDAO /*, spotifyService */) // Use SongDAO
+	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService)                // Pass DAOs and other services
 
+	// Handlers
 	userHandler := handlers.NewUserHandler(userService)
-	// TODO: Instantiate SongHandler
-	// songHandler := handlers.NewSongHandler(songService)
-	spotifyHandler := handlers.NewSpotifyHandler(spotifyService)
+	spotifyHandler := handlers.NewSpotifyHandler(spotifyService)           // Handles auth code exchange, refresh etc.
+	selectionHandler := handlers.NewSelectionHandler(userSelectionService) // Handles POST/GET/PUT/DELETE on /selections
+
 	// --- End Dependency Injection ---
 
 	log.Printf("DEBUG: Configuring CORS with AllowOrigins: %v", []string{config.ClientOrigin})
@@ -98,7 +111,10 @@ func main() {
 		router.GET("/ping", func(ctx *gin.Context) { ctx.JSON(http.StatusOK, "pong") })
 		// TODO: Implement a more robust DB health check
 		router.GET("/db_health", func(ctx *gin.Context) {
-			if client.Ping(ctx, nil) == nil {
+			// Use a timeout context for the ping
+			pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if client.Ping(pingCtx, nil) == nil {
 				ctx.JSON(http.StatusOK, gin.H{"status": "MongoDB connection healthy"})
 			} else {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"status": "MongoDB connection unhealthy"})
@@ -115,24 +131,18 @@ func main() {
 		// Apply Clerk JWT authentication middleware to all /api routes
 		api.Use(middleware.AuthenticateClerkJWT())
 
-		// User Routes
-		// TODO: Keep /users POST route if needed for other purposes (e.g., admin creation)
-		// api.POST("/users", userHandler.CreateUser)
-		// TODO: Keep /users/:id GET route if needed (e.g., fetching profile)
-		// api.GET("/users/:id", userHandler.GetUser)
-
 		// User Sync Route (Ensures user exists in DB after Clerk sign-in)
-		api.POST("/users/sync", userHandler.SyncUser) // New route for syncing
+		api.POST("/users/sync", userHandler.SyncUser)
 
-		// TODO: Uncomment and implement Song routes
-		// api.POST("/songs", songHandler.CreateSong)
-		// api.GET("/songs/:id", songHandler.GetSong)
-		// api.GET("/songs", songHandler.ListSongs)
-		// TODO: Add routes for user selections (POST/GET/PUT/DELETE /user-selections)
+		// User Selection Routes (New)
+		api.POST("/selections", selectionHandler.CreateSelection)                 // Add a candidate/muse/ick
+		api.GET("/selections/:monthYear", selectionHandler.ListSelectionsByMonth) // List selections for a month (YYYY-MM)
+		api.PUT("/selections/:id", selectionHandler.UpdateSelection)              // Update a selection (e.g., change type, notes)
+		api.DELETE("/selections/:id", selectionHandler.DeleteSelection)           // Delete a selection
 
-		// Spotify Routes (Need auth because they interact with user-specific data/tokens)
-		api.POST("/spotify/exchange-code", spotifyHandler.ExchangeCodeForToken)
-		api.POST("/spotify/refresh-token", spotifyHandler.RefreshAccessToken)
+		// Spotify Auth Routes (Need auth because they interact with user-specific data/tokens)
+		api.POST("/spotify/exchange-code", spotifyHandler.ExchangeCodeForToken) // Exchanges auth code for user tokens
+		api.POST("/spotify/refresh-token", spotifyHandler.RefreshAccessToken)   // Refreshes user's access token
 		// TODO: Consider if refresh token endpoint needs better security/design
 	}
 
