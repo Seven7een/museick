@@ -27,10 +27,6 @@ More ideas at the end of the README - feel free to suggest what you want to see!
 
 ---
 
-## Dev stuff
-
----
-
 ## 🧱 Tech Stack
 
 - **Frontend**: React (Material UI)
