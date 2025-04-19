@@ -9,10 +9,10 @@ import (
 
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/models"
+	"github.com/seven7een/museick/museick-backend/internal/utils"
 	"github.com/zmb3/spotify/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/oauth2"
 )
 
 // SpotifySyncService handles fetching data from Spotify API and syncing it to the database.
@@ -34,16 +34,6 @@ func NewSpotifySyncService(
 		albumDAO:  albumDAO,
 		artistDAO: artistDAO,
 	}
-}
-
-// createTemporaryClient creates a Spotify client using a provided access token.
-func createTemporaryClient(ctx context.Context, accessToken string) *spotify.Client {
-	token := &oauth2.Token{AccessToken: accessToken, TokenType: "Bearer"}
-	// Create an http.Client that uses the provided token.
-	httpClient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(token))
-	// Create the Spotify client using the OAuth2-aware http.Client.
-	client := spotify.New(httpClient)
-	return client
 }
 
 // SyncItem fetches details for a Spotify item using a provided client
@@ -144,20 +134,20 @@ func mapSpotifyAlbumToDBModel(fa *spotify.FullAlbum) *models.SpotifyAlbum {
 	}
 	// Access SimpleAlbum fields via fa.SimpleAlbum embedding
 	return &models.SpotifyAlbum{
-		SpotifyID:            fa.ID.String(), // Use SpotifyID as _id
-		AlbumType:            fa.AlbumType,
-		TotalTracks:          int(fa.Tracks.Total), // Get from FullAlbum's Tracks field
-		AvailableMarkets:     fa.AvailableMarkets,
-		ExternalUrls:         fa.ExternalURLs,
+		SpotifyID:        fa.ID.String(), // Use SpotifyID as _id
+		AlbumType:        fa.AlbumType,
+		TotalTracks:      int(fa.Tracks.Total), // Get from FullAlbum's Tracks field
+		AvailableMarkets: fa.AvailableMarkets,
+		ExternalUrls:     fa.ExternalURLs,
 		// Href:                 fa.Href, // Not in the Go Api we're using
 		Images:               mapSpotifyImagesToDBModels(fa.Images),
 		Name:                 fa.Name,
 		ReleaseDate:          fa.ReleaseDate,
 		ReleaseDatePrecision: fa.ReleaseDatePrecision,
 		// Restrictions:         mapRestrictions(fa.Restrictions), // Not in the Go Api we're using
-		Type:                 string(fa.AlbumType),            // Use AlbumType from FullAlbum as Type
-		URI:                  string(fa.URI),
-		Artists:              mapSpotifySimpleArtistsToDBModels(fa.Artists), // Map embedded SimpleArtists
+		Type:    string(fa.AlbumType), // Use AlbumType from FullAlbum as Type
+		URI:     string(fa.URI),
+		Artists: mapSpotifySimpleArtistsToDBModels(fa.Artists), // Map embedded SimpleArtists
 		// TODO: Add Genres, Label, Copyrights if they exist in models.SpotifyAlbum and fa.FullAlbum
 		LastFetchedAt: primitive.NewDateTimeFromTime(time.Now()),
 	}
@@ -168,10 +158,10 @@ func mapSpotifySimpleAlbumToDBModel(sa *spotify.SimpleAlbum) *models.SimplifiedA
 		return nil
 	}
 	return &models.SimplifiedAlbum{
-		AlbumType:            sa.AlbumType,
-		TotalTracks:          int(sa.TotalTracks),
-		AvailableMarkets:     sa.AvailableMarkets,
-		ExternalUrls:         sa.ExternalURLs,
+		AlbumType:        sa.AlbumType,
+		TotalTracks:      int(sa.TotalTracks),
+		AvailableMarkets: sa.AvailableMarkets,
+		ExternalUrls:     sa.ExternalURLs,
 		// Href:                 sa.Href, // Not in the Go Api we're using
 		ID:                   sa.ID.String(),
 		Images:               mapSpotifyImagesToDBModels(sa.Images),
@@ -179,9 +169,9 @@ func mapSpotifySimpleAlbumToDBModel(sa *spotify.SimpleAlbum) *models.SimplifiedA
 		ReleaseDate:          sa.ReleaseDate,
 		ReleaseDatePrecision: sa.ReleaseDatePrecision,
 		// Restrictions:         mapRestrictions(sa.Restrictions), // Not in the Go Api we're using
-		Type:                 sa.AlbumGroup,                  
-		URI:                  string(sa.URI),
-		Artists:              mapSpotifySimpleArtistsToDBModels(sa.Artists),
+		Type:    sa.AlbumGroup,
+		URI:     string(sa.URI),
+		Artists: mapSpotifySimpleArtistsToDBModels(sa.Artists),
 	}
 }
 
@@ -194,13 +184,13 @@ func mapSpotifyArtistToDBModel(fa *spotify.FullArtist) *models.SpotifyArtist {
 	return &models.SpotifyArtist{
 		SpotifyID:    fa.ID.String(),
 		ExternalUrls: fa.ExternalURLs,
-		Genres:       fa.Genres, 
+		Genres:       fa.Genres,
 		// Href:         fa.Href,   // Not in the Go Api we're using
-		Images:       mapSpotifyImagesToDBModels(fa.Images),
-		Name:         fa.Name,
-		Popularity:   &popularity,
+		Images:     mapSpotifyImagesToDBModels(fa.Images),
+		Name:       fa.Name,
+		Popularity: &popularity,
 		// Type:         string(fa.Type), // Not in the Go Api we're using
-		URI:          string(fa.URI),
+		URI: string(fa.URI),
 		// TODO: Map Followers if needed (fa.Followers.Count)
 		LastFetchedAt: primitive.NewDateTimeFromTime(time.Now()),
 	}
@@ -215,10 +205,10 @@ func mapSpotifySimpleArtistsToDBModels(sas []spotify.SimpleArtist) []models.Simp
 		dbArtists[i] = models.SimplifiedArtist{
 			ExternalUrls: sa.ExternalURLs,
 			// Href:         sa.Href, // Not in the Go Api we're using
-			ID:           sa.ID.String(),
-			Name:         sa.Name,
+			ID:   sa.ID.String(),
+			Name: sa.Name,
 			// Type:         string(sa.Type), // Not in the Go Api we're using
-			URI:          string(sa.URI),
+			URI: string(sa.URI),
 		}
 	}
 	return dbArtists
@@ -320,10 +310,10 @@ func (s *SpotifySyncService) GetOrSyncItem(ctx context.Context, spotifyID string
 		}
 
 		// Create a temporary client for this sync operation
-		tempClient := createTemporaryClient(ctx, spotifyToken)
+		client := utils.CreateTemporarySpotifyClient(ctx, spotifyToken)
 
 		// 3. Fetch from Spotify and Upsert using the temporary client
-		err = s.SyncItem(ctx, spotifyID, itemType, tempClient)
+		err = s.SyncItem(ctx, spotifyID, itemType, client)
 		if err != nil {
 			if foundInDB {
 				log.Printf("Sync failed for stale item %s (%s), returning stale data. Error: %v", spotifyID, itemType, err)

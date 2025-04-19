@@ -4,7 +4,7 @@ import { GridMode, GridItemType } from '@/types/spotify.types';
 const BASE_URL = '/api'; // Use relative path for proxy
 
 /**
- * Performs a fetch request to the backend API, automatically including the Clerk JWT.
+ * Performs a fetch request to the backend API, automatically including the Clerk JWT and Spotify token.
  * @param endpoint The specific API endpoint (e.g., '/users/sync').
  * @param jwt The Clerk JWT token (MUST be passed in).
  * @param options Standard Fetch API options (method, headers, body).
@@ -24,7 +24,17 @@ const _fetchBackendApi = async <T = any>(
 
   const url = `${BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers || {});
+  
+  // Add Clerk JWT
   headers.set('Authorization', `Bearer ${jwt}`);
+  
+  // Add Spotify token if available
+  const spotifyToken = localStorage.getItem('spotify_access_token');
+  if (spotifyToken) {
+    headers.set('X-Spotify-Token', spotifyToken);
+  }
+  
+  // Set content type for JSON bodies
   if (options.body && !(options.body instanceof FormData)) { // Don't set Content-Type for FormData
       headers.set('Content-Type', 'application/json');
   }
@@ -57,6 +67,8 @@ const _fetchBackendApi = async <T = any>(
     throw error; // Re-throw error for caller to handle
   }
 };
+
+export const fetchBackendApi = _fetchBackendApi;
 
 /**
  * Exchanges the Spotify authorization code for tokens via the backend.

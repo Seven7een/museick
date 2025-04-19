@@ -14,6 +14,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.0.2",
+    "@mui/lab": "^7.0.0-beta.11",
     "@mui/material": "^7.0.2",
     "axios": "^1.8.4",
     "fast-average-color": "^9.5.0",

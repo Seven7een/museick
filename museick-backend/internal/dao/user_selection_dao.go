@@ -33,6 +33,8 @@ type UserSelectionDAO interface {
 	ListByUserAndMonth(ctx context.Context, userID, monthYear string) ([]*models.UserSelection, error)
 	// GetByID retrieves a single selection by its MongoDB ObjectID.
 	GetByID(ctx context.Context, selectionID primitive.ObjectID) (*models.UserSelection, error)
+	// GetUserSelectionsForYear retrieves selections for a user for a specific year.
+	GetUserSelectionsForYear(ctx context.Context, userID string, year int, itemType string, roles []string) ([]*models.UserSelection, error)
 	// TODO: Add methods like ListByUserAndType, etc. if needed
 }
 
@@ -280,4 +282,36 @@ func (dao *userSelectionDAOImpl) GetByID(ctx context.Context, selectionID primit
 		return nil, fmt.Errorf("error finding selection by ID: %w", err)
 	}
 	return &selection, nil
+}
+
+// GetUserSelectionsForYear retrieves selections for a user for a specific year.
+func (dao *userSelectionDAOImpl) GetUserSelectionsForYear(ctx context.Context, userID string, year int, itemType string, roles []string) ([]*models.UserSelection, error) {
+	// Create filter for the year range (all months of the year)
+	startMonth := fmt.Sprintf("%d-01", year)
+	endMonth := fmt.Sprintf("%d-12", year)
+
+	filter := bson.M{
+		"user_id":   userID,
+		"item_type": itemType,
+		"month_year": bson.M{
+			"$gte": startMonth,
+			"$lte": endMonth,
+		},
+		"selection_role": bson.M{
+			"$in": roles,
+		},
+	}
+
+	cursor, err := dao.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("error finding selections: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var selections []*models.UserSelection
+	if err = cursor.All(ctx, &selections); err != nil {
+		return nil, fmt.Errorf("error decoding selections: %w", err)
+	}
+
+	return selections, nil
 }

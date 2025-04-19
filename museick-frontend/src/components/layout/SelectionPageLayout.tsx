@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from "@clerk/clerk-react";
+import { SignInButton as ClerkSignInButton } from "@clerk/clerk-react";
+import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Paper, Button } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
-import { useAuth } from "@clerk/clerk-react";
-import { SignInButton as ClerkSignInButton } from "@clerk/clerk-react";
-import { useThemeContext } from '@/context/ThemeContext';
-import { useNavigate, useParams } from 'react-router-dom';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
+import { useThemeContext } from '@/context/ThemeContext';
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
 import YearSelect from '@/components/yearly/YearSelect';
+import CreatePlaylistModal from '@/components/yearly/CreatePlaylistModal';
 import { GridItemType, GridMode } from '@/types/spotify.types';
+import { createYearlyPlaylist } from '@/services/playlistApi';
 
 interface SelectionPageLayoutProps {
   itemType: GridItemType;
@@ -24,6 +27,8 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
   const { isSignedIn } = useAuth();
   const { mode, setMode } = useThemeContext();
   const [visibleMode, setVisibleMode] = useState<GridMode>(mode); // Initialize from theme
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [playlistError, setPlaylistError] = useState<string | null>(null);
 
   // Sync local state with theme context
   useEffect(() => {
@@ -39,6 +44,17 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
 
   const handleYearChange = (newYear: number) => {
     navigate(`/${itemType}s/${newYear}`);
+  };
+
+  const handleCreatePlaylist = async (includeCandidates: boolean) => {
+    try {
+      setPlaylistError(null);
+      await createYearlyPlaylist(year, visibleMode, includeCandidates);
+      setPlaylistModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create playlist:', error);
+      setPlaylistError(error instanceof Error ? error.message : 'Failed to create playlist');
+    }
   };
 
   if (!isSignedIn) {
@@ -61,14 +77,20 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 4 }}>
         <Typography variant="h4" component="h1">
-          {pageTitle}
+          {year} {pageTitle}
         </Typography>
-        <YearSelect 
-          currentYear={year} 
-          onYearSelect={handleYearChange}
-        />
+        <YearSelect currentYear={year} onYearSelect={handleYearChange} />
+        {itemType === 'track' && (
+          <Button
+            variant="contained"
+            onClick={() => setPlaylistModalOpen(true)}
+            startIcon={<PlaylistAddIcon />}
+          >
+            Create Playlist
+          </Button>
+        )}
       </Box>
 
       {/* Toggle Button Group */}
@@ -102,11 +124,22 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
 
         {/* Ick Grid */}
         <Fade in={visibleMode === 'ick'} timeout={500} unmountOnExit>
-           <Box>
+          <Box>
             <YearlySelectionGrid mode="ick" itemType={itemType} year={year} />
           </Box>
         </Fade>
       </Box>
+
+      {itemType === 'track' && (
+        <CreatePlaylistModal
+          open={playlistModalOpen}
+          onClose={() => setPlaylistModalOpen(false)}
+          year={year}
+          mode={visibleMode}
+          onCreatePlaylist={handleCreatePlaylist}
+          error={playlistError}
+        />
+      )}
     </Container>
   );
 };

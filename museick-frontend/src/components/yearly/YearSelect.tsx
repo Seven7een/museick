@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Button, Dialog, DialogTitle, DialogContent, 
-  Grid, IconButton, Typography, useTheme 
+  Grid, IconButton, Typography
 } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -18,7 +18,6 @@ interface YearSelectProps {
 const YearSelect: React.FC<YearSelectProps> = ({ currentYear, onYearSelect }) => {
   const [open, setOpen] = useState(false);
   const [decade, setDecade] = useState(Math.floor(currentYear / 10) * 10);
-  const theme = useTheme();
 
   const handleYearClick = (year: number) => {
     onYearSelect(year);
@@ -66,7 +65,7 @@ const YearSelect: React.FC<YearSelectProps> = ({ currentYear, onYearSelect }) =>
         <DialogContent>
           <Grid container spacing={1}>
             {Array.from({ length: 10 }, (_, i) => decade + i).map(year => (
-              <Grid item xs={3} key={year}>
+              <Grid size={3} key={year}>
                 <Button
                   fullWidth
                   variant={year === currentYear ? 'contained' : 'outlined'}

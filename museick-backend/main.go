@@ -80,11 +80,13 @@ func main() {
 	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)               // Handles basic auth, token exchange with spotify
 	spotifySyncService := services.NewSpotifySyncService(spotifyTrackDAO, spotifyAlbumDAO, spotifyArtistDAO)       // Inject Track DAO
 	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService) // Pass DAOs and other services
+	playlistService := services.NewPlaylistService(userSelectionDAO, spotifyService)
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService)
 	spotifyHandler := handlers.NewSpotifyHandler(spotifyService, userDAO)
 	selectionHandler := handlers.NewSelectionHandler(userSelectionService) // Handles POST/GET/PUT/DELETE on /selections
+	playlistHandler := handlers.NewPlaylistHandler(playlistService)
 
 	// --- End Dependency Injection ---
 
@@ -144,6 +146,9 @@ func main() {
 		api.POST("/spotify/exchange-code", spotifyHandler.ExchangeCodeForToken) // Exchanges auth code for user tokens
 		api.POST("/spotify/refresh-token", spotifyHandler.RefreshAccessToken)   // Refreshes user's access token
 		// TODO: Consider if refresh token endpoint needs better security/design
+
+		// Playlist Routes
+		api.POST("/playlists", playlistHandler.CreatePlaylist)
 	}
 
 	log.Printf("🚀 Server starting on port %s", config.ServerPort)

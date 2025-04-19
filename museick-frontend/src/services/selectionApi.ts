@@ -1,18 +1,7 @@
 import { UserSelection, SelectionRole } from '@/types/museick.types';
 import { GridItemType } from '@/types/spotify.types';
 import { SpotifyAuthError } from '@/features/spotify/spotifyApi';
-
-// TODO: Take all this and put it into the backend API file
-
-// Helper function to add both Clerk and Spotify tokens to headers
-const getAuthHeaders = async (jwt: string): Promise<HeadersInit> => {
-    const spotifyToken = localStorage.getItem('spotify_access_token');
-    return {
-        'Authorization': `Bearer ${jwt}`,
-        'Content-Type': 'application/json',
-        'X-Spotify-Token': spotifyToken || '',
-    };
-};
+import { fetchBackendApi } from '@/features/api/backendApi';
 
 let getTokenFunction: (() => Promise<string | null>) | null = null;
 
@@ -32,8 +21,6 @@ async function getAuthToken() {
   return token;
 }
 
-const API_BASE_URL = '/api';
-
 /**
  * Adds an item as a candidate for a given month and role.
  */
@@ -44,38 +31,26 @@ export async function addSelectionCandidate(
   role: SelectionRole
 ): Promise<UserSelection> {
   const token = await getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/selections`, {
-    method: 'POST',
-    headers: await getAuthHeaders(token),
-    body: JSON.stringify({
-      spotify_item_id: spotifyId, // Renamed from spotify_id
-      item_type: itemType, // Renamed from spotify_type, ensure itemType is 'track', 'album', or 'artist'
-      month_year: monthYear,
-      selection_role: role,
-    }),
-  });
-
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error(`API Error (${response.status}) adding selection:`, data);
-    
-    // Handle specific error cases
-    if (response.status === 401) {
-      if (data.error?.includes('Spotify')) {
-        throw new SpotifyAuthError('Failed to authenticate with Spotify. Please ensure your account is linked.');
+  try {
+    return await fetchBackendApi<UserSelection>(
+      '/selections',
+      token,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          spotify_item_id: spotifyId,
+          item_type: itemType,
+          month_year: monthYear,
+          selection_role: role,
+        }),
       }
-      throw new Error('Authentication required');
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Spotify')) {
+      throw new SpotifyAuthError('Failed to authenticate with Spotify. Please ensure your account is linked.');
     }
-    
-    if (response.status === 400) {
-      throw new Error(`Invalid selection data: ${data.error}`);
-    }
-    
-    throw new Error(data.error || `Failed to add selection (status ${response.status})`);
+    throw error;
   }
-
-  return data as UserSelection;
 }
 
 /**
@@ -83,76 +58,50 @@ export async function addSelectionCandidate(
  */
 export async function listSelectionsForMonth(monthYear: string): Promise<UserSelection[]> {
   const token = await getAuthToken();
-  const url = `${API_BASE_URL}/selections/${monthYear}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: await getAuthHeaders(token),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-     console.error(`API Error (${response.status}) listing selections:`, data);
-    throw new Error(data.error || `Failed to list selections for ${monthYear} (status ${response.status})`);
-  }
-  return data as UserSelection[];
+  return fetchBackendApi<UserSelection[]>(
+    `/selections/${monthYear}`,
+    token,
+    { method: 'GET' }
+  );
 }
 
 /**
  * Updates a selection's role and/or notes.
  */
 export async function updateSelection(
-  selectionId: string, // MongoDB ObjectID
+  selectionId: string,
   updates: { selection_role?: SelectionRole; notes?: string }
 ): Promise<UserSelection> {
-   const token = await getAuthToken();
-   if (!updates || (updates.selection_role === undefined && updates.notes === undefined)) {
+  const token = await getAuthToken();
+  if (!updates || (updates.selection_role === undefined && updates.notes === undefined)) {
     throw new Error("UpdateSelection requires 'selection_role' or 'notes' in updates object.");
   }
 
-  const url = `${API_BASE_URL}/selections/${selectionId}`;
-  const response = await fetch(url, {
-    method: 'PUT',
-    headers: await getAuthHeaders(token),
-    body: JSON.stringify(updates),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-     console.error(`API Error (${response.status}) updating selection:`, data);
-    throw new Error(data.error || `Failed to update selection ${selectionId} (status ${response.status})`);
-  }
-  console.log('Selection updated:', data);
-  return data as UserSelection;
+  return fetchBackendApi<UserSelection>(
+    `/selections/${selectionId}`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }
+  );
 }
 
 /**
  * Deletes a selection.
  */
 export async function deleteSelection(selectionId: string): Promise<boolean> {
-   const token = await getAuthToken();
-  const url = `${API_BASE_URL}/selections/${selectionId}`;
-  const response = await fetch(url, {
-    method: 'DELETE',
-    headers: await getAuthHeaders(token),
-  });
-
-  if (response.status === 204) {
+  const token = await getAuthToken();
+  try {
+    await fetchBackendApi<void>(
+      `/selections/${selectionId}`,
+      token,
+      { method: 'DELETE' }
+    );
     console.log(`Selection ${selectionId} deleted successfully.`);
     return true;
+  } catch (error) {
+    console.error('Error deleting selection:', error);
+    throw error;
   }
-
-  // Handle potential errors with JSON body
-  let errorData = { error: `Failed to delete selection (status ${response.status})` };
-  try {
-      if (response.headers.get('content-type')?.includes('application/json')) {
-          errorData = await response.json();
-      }
-  } catch (e) {
-      console.warn("Could not parse error JSON on delete:", e);
-  }
-
-  console.error(`API Error (${response.status}) deleting selection:`, errorData);
-  throw new Error(errorData.error);
 }
