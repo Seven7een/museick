@@ -55,7 +55,7 @@ const getSecondaryText = (itemData?: SpotifyGridItem): string => {
 };
 
 const MonthSlot: React.FC<MonthSlotProps> = ({
-  monthIndex, monthName, mode, itemType, onSlotClick, itemData, ariaLabel
+  monthIndex, monthName, mode, itemType, onSlotClick, itemData
 }) => {
   const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
