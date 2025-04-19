@@ -4,7 +4,7 @@ import { AppBar, Toolbar, Typography, Box, Button, Chip } from '@mui/material';
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { buildSpotifyAuthUrl } from '@/features/spotify/auth';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LinkOffIcon from '@mui/icons-material/LinkOff';
+import LinkOffIcon from '@mui/icons-material/Link';
 import SpotifyIcon from '@mui/icons-material/Link';
 
 const Navbar: React.FC = () => {

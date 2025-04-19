@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Paper, Typography, Fab, IconButton, Collapse, useTheme } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
@@ -7,6 +7,7 @@ import AlbumIcon from '@mui/icons-material/Album';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CloseIcon from '@mui/icons-material/Close';
+import { FastAverageColor } from 'fast-average-color';
 
 import { SpotifyGridItem, GridMode, GridItemType, SpotifyImage } from '@/types/spotify.types';
 
@@ -58,6 +59,7 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
 }) => {
   const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [dominantColor, setDominantColor] = useState<string | null>(null);
 
   const handlePlayClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -90,6 +92,16 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
 
   const PlaceholderIcon = itemType === 'artist' ? PersonIcon : itemType === 'album' ? AlbumIcon : MusicNoteIcon;
 
+  // Extract dominant color from image
+  useEffect(() => {
+    if (imageUrl) {
+      const fac = new FastAverageColor();
+      fac.getColorAsync(imageUrl)
+        .then(color => setDominantColor(color.rgba))
+        .catch(() => setDominantColor(null));
+    }
+  }, [imageUrl]);
+
   return (
     <Paper
       elevation={3}
@@ -101,6 +113,44 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'grey.200', // Fallback color when no image
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: 'translateY(0)',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: theme.shadows[8],
+        },
+        '&::after': itemData ? {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background: mode === 'muse' 
+            ? `linear-gradient(to right, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`
+            : `linear-gradient(to right, ${theme.palette.primary.dark}, ${theme.palette.secondary.dark})`,
+          opacity: 0,
+          transition: 'opacity 0.3s ease',
+        } : {},
+        '&:hover::after': {
+          opacity: 1,
+        },
+        // Add subtle sparkle effect for muse items
+        '&::before': mode === 'muse' && itemData ? {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 50% 50%, rgba(0, 255, 178, 0.1) 0%, transparent 50%)',
+          mixBlendMode: 'overlay',
+          opacity: 0,
+          transition: 'opacity 0.3s ease',
+        } : {},
+        '&:hover::before': mode === 'muse' && itemData ? {
+          opacity: 1,
+        } : {},
       }}
     >
       {/* Background Image Container */}
@@ -120,8 +170,11 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
               left: 0,
               right: 0,
               height: '20%',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)',
+              background: dominantColor 
+                ? `linear-gradient(to top, ${dominantColor.replace(')', ', 0.6)')}, transparent)`
+                : 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)',
               zIndex: 2,
+              transition: 'background 0.3s ease',
             },
           }}
         >
@@ -195,10 +248,18 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
             cursor: 'pointer',
             position: 'relative',
             minHeight: '20%',
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
-            backdropFilter: 'blur(4px)',
+            backgroundColor: dominantColor 
+              ? `${dominantColor.replace(')', ', 0.3)')}` 
+              : 'rgba(0, 0, 0, 0.2)',
+            backdropFilter: 'blur(8px)',
             color: 'white',
             zIndex: 1,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              backgroundColor: dominantColor 
+                ? `${dominantColor.replace(')', ', 0.4)')}` 
+                : 'rgba(0, 0, 0, 0.3)',
+            },
           }}
           aria-expanded={isExpanded}
           aria-controls={`item-details-${monthIndex}`}
@@ -224,16 +285,41 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
 
         {/* Expanded Details Section */}
         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-          <Box id={`item-details-${monthIndex}`}
+          <Box
+            id={`item-details-${monthIndex}`}
             sx={{
-              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-              bgcolor: 'rgba(0, 0, 0, 0.85)', color: 'white', zIndex: 3,
-              p: 2, pt: 8, // Add padding top to avoid overlap with close button
-              overflowY: 'auto', display: 'flex', flexDirection: 'column',
-              borderRadius: 0 // Match paper's radius
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'rgba(0, 0, 0, 0.85)',
+              color: 'white',
+              zIndex: 3,
+              p: 2,
+              pt: 8,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
-            <IconButton aria-label="Close details" onClick={handleToggleExpand} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 4 }}>
+            <IconButton
+              aria-label="Close details"
+              onClick={handleToggleExpand}
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                color: 'white',
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(4px)',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                },
+                zIndex: 4,
+              }}
+            >
               <CloseIcon fontSize="small"/>
             </IconButton>
             {/* Detailed Info */}

@@ -3,6 +3,7 @@ import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Pape
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
 import { useAuth, SignInButton } from "@clerk/clerk-react";
+import { useThemeContext } from '@/context/ThemeContext';
 
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
 import { GridItemType, GridMode } from '@/types/spotify.types';
@@ -16,10 +17,13 @@ interface SelectionPageLayoutProps {
 const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year, pageTitle }) => {
   const [visibleMode, setVisibleMode] = useState<GridMode>('muse');
   const { isSignedIn } = useAuth();
+  const { setMode } = useThemeContext();
 
   const handleModeChange = (_: React.MouseEvent<HTMLElement>, newMode: GridMode | null) => {
     if (newMode !== null) {
+      console.log('Changing mode to:', newMode);
       setVisibleMode(newMode);
+      setMode(newMode);
     }
   };
 
