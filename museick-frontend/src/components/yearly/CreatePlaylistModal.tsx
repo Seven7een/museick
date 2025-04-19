@@ -16,7 +16,6 @@ import {
   CardContent,
   Typography,
   Stack,
-  Skeleton,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AlbumIcon from '@mui/icons-material/Album';
@@ -202,68 +201,69 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
       ) : (
         <Box sx={{ p: 0 }}>
           <Card elevation={0}>
-            {imageLoading ? (
-              <Skeleton 
-                variant="rectangular" 
-                width="100%" 
-                sx={{ 
-                  aspectRatio: '1/1'
-                }} 
-              />
-            ) : (
-              <Box sx={{ 
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '1/1',
-                bgcolor: 'grey.100'
-              }}>
-                {playlistImage?.url ? (
-                  <CardMedia
-                    component="img"
-                    image={playlistImage.url}
-                    alt="Playlist Cover"
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={() => setPlaylistImage(null)}
-                  />
-                ) : (
-                  <Box sx={{
+            <Box sx={{ 
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '1/1',
+              bgcolor: 'grey.100'
+            }}>
+              {playlistImage?.url ? (
+                <CardMedia
+                  component="img"
+                  image={playlistImage.url}
+                  alt="Playlist Cover"
+                  sx={{
                     width: '100%',
                     height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 2,
-                    bgcolor: 'grey.100'
-                  }}>
-                    <AlbumIcon sx={{ fontSize: 80, color: 'grey.400' }} />
-                    {loadingText && (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        {!loadingText.includes('Failed') && (
-                          <CircularProgress size={16} />
-                        )}
-                        <Typography 
-                          variant="body2" 
-                          color={loadingText.includes('Failed') ? 'error' : 'text.secondary'}
-                        >
-                          {loadingText}
-                        </Typography>
-                      </Stack>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            )}
+                    objectFit: 'cover'
+                  }}
+                  onError={() => setPlaylistImage(null)}
+                />
+              ) : (
+                <Box sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 2,
+                  bgcolor: 'grey.100'
+                }}>
+                  <AlbumIcon sx={{ 
+                    fontSize: 80, 
+                    color: 'grey.400',
+                    animation: imageLoading ? 'spin 2s linear infinite' : 'none',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' }
+                    }
+                  }} />
+                  {loadingText && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      {!loadingText.includes('Failed') && (
+                        <CircularProgress size={16} />
+                      )}
+                      <Typography 
+                        variant="body2" 
+                        color={loadingText.includes('Failed') ? 'error' : 'text.secondary'}
+                        sx={{ textAlign: 'center' }}
+                      >
+                        {loadingText}
+                      </Typography>
+                    </Stack>
+                  )}
+                </Box>
+              )}
+            </Box>
             <CardContent sx={{ textAlign: 'center', pt: 3 }}>
               <Typography variant="h5" gutterBottom>
                 {playlistName}
               </Typography>
               <Typography variant="body1" color="text.secondary" paragraph>
-                Your playlist has been created successfully!
+                {imageLoading 
+                  ? 'Finalizing your playlist...'
+                  : 'Your playlist has been created successfully!'}
               </Typography>
               <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
                 <Button
