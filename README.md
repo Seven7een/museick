@@ -35,6 +35,11 @@ More ideas at the end of the README - feel free to suggest what you want to see!
 - **Backend**: Go (Golang) with Gin framework
 - **Database**: MongoDB
 
+- **Deployments**: Railway
+- **Static hosting**: Nginx
+- **Containerisation**: Docker
+- **CI/CD**: GitHub Actions
+
 ---
 
 ## 🚧 Future Ideas
