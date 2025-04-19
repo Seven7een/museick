@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Paper, Button } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
-import { useAuth, SignInButton } from "@clerk/clerk-react";
+import { useAuth } from "@clerk/clerk-react";
+import { SignInButton as ClerkSignInButton } from "@clerk/clerk-react";
 import { useThemeContext } from '@/context/ThemeContext';
 
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
@@ -37,9 +38,9 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             You need to be signed in to view and manage your {pageTitle.toLowerCase()} for {year}.
           </Typography>
-          <SignInButton mode="modal">
+          <ClerkSignInButton mode="modal">
             <Button variant="contained">Sign In</Button>
-          </SignInButton>
+          </ClerkSignInButton>
         </Paper>
       </Container>
     );
