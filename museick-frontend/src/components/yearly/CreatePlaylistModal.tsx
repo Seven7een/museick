@@ -40,6 +40,7 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [playlistImage, setPlaylistImage] = useState<SpotifyImage | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState<string>('');
   const playlistName = `Museick.app - ${year} ${mode}s`;
 
   // Extract playlist ID from URL and fetch image when playlist is created
@@ -47,14 +48,37 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
     const fetchPlaylistImage = async (url: string) => {
       try {
         setImageLoading(true);
+        setLoadingText('Getting playlist image');
         const playlistId = url.split('/playlist/')[1];
         if (!playlistId) return;
 
-        const images = await getPlaylistImages(playlistId);
-        // Use the largest image for better quality
-        setPlaylistImage(images[0] || images[images.length - 1]);
+        // Add retry logic with exponential backoff
+        const maxRetries = 3;
+        const baseDelay = 1000; // Start with 1 second delay
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            const images = await getPlaylistImages(playlistId);
+            if (images && images.length > 0) {
+              setPlaylistImage(images[0] || images[images.length - 1]);
+              setLoadingText('');
+              return;
+            }
+          } catch (error) {
+            // Silent catch, keep trying
+          }
+
+          // Wait before next retry with exponential backoff
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, attempt)));
+          }
+        }
+        
+        // If we get here, all retries failed
+        setLoadingText('Failed to load image');
+        setPlaylistImage(null);
       } catch (err) {
-        console.error('Failed to fetch playlist image:', err);
+        setLoadingText('Failed to load image');
         setPlaylistImage(null);
       } finally {
         setImageLoading(false);
@@ -210,11 +234,26 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
                     width: '100%',
                     height: '100%',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: 2,
                     bgcolor: 'grey.100'
                   }}>
                     <AlbumIcon sx={{ fontSize: 80, color: 'grey.400' }} />
+                    {loadingText && (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {!loadingText.includes('Failed') && (
+                          <CircularProgress size={16} />
+                        )}
+                        <Typography 
+                          variant="body2" 
+                          color={loadingText.includes('Failed') ? 'error' : 'text.secondary'}
+                        >
+                          {loadingText}
+                        </Typography>
+                      </Stack>
+                    )}
                   </Box>
                 )}
               </Box>
