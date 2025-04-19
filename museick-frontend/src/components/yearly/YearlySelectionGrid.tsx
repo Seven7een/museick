@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
+import { Box, CircularProgress, Alert } from '@mui/material';
 import Grid from '@mui/material/Grid';
 
 import MonthSlot from '@/components/yearly/MonthSlot';
@@ -121,7 +121,6 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
 
   // --- Determine Grid Title ---
   const modeTitle = mode === 'muse' ? 'Muses' : 'Icks';
-  const typeTitle = itemType.charAt(0).toUpperCase() + itemType.slice(1) + 's';
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>;
   }
