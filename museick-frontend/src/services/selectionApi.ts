@@ -3,24 +3,6 @@ import { GridItemType } from '@/types/spotify.types';
 import { SpotifyAuthError } from '@/features/spotify/spotifyApi';
 import { fetchBackendApi } from '@/features/api/backendApi';
 
-let getTokenFunction: (() => Promise<string | null>) | null = null;
-
-export function initializeAuthToken(getToken: () => Promise<string | null>) {
-  getTokenFunction = getToken;
-}
-
-async function getAuthToken() {
-  if (!getTokenFunction) {
-    console.error('Auth token getter not initialized. Call initializeAuthToken first.');
-    throw new Error('Authentication not properly initialized');
-  }
-  const token = await getTokenFunction();
-  if (!token) {
-    throw new Error('Authentication token not found');
-  }
-  return token;
-}
-
 /**
  * Adds an item as a candidate for a given month and role.
  */
@@ -30,11 +12,9 @@ export async function addSelectionCandidate(
   monthYear: string,
   role: SelectionRole
 ): Promise<UserSelection> {
-  const token = await getAuthToken();
   try {
     return await fetchBackendApi<UserSelection>(
       '/selections',
-      token,
       {
         method: 'POST',
         body: JSON.stringify({
@@ -57,10 +37,8 @@ export async function addSelectionCandidate(
  * Lists all selections for a given month.
  */
 export async function listSelectionsForMonth(monthYear: string): Promise<UserSelection[]> {
-  const token = await getAuthToken();
   return fetchBackendApi<UserSelection[]>(
     `/selections/${monthYear}`,
-    token,
     { method: 'GET' }
   );
 }
@@ -72,14 +50,12 @@ export async function updateSelection(
   selectionId: string,
   updates: { selection_role?: SelectionRole; notes?: string }
 ): Promise<UserSelection> {
-  const token = await getAuthToken();
   if (!updates || (updates.selection_role === undefined && updates.notes === undefined)) {
     throw new Error("UpdateSelection requires 'selection_role' or 'notes' in updates object.");
   }
 
   return fetchBackendApi<UserSelection>(
     `/selections/${selectionId}`,
-    token,
     {
       method: 'PUT',
       body: JSON.stringify(updates),
@@ -91,11 +67,9 @@ export async function updateSelection(
  * Deletes a selection.
  */
 export async function deleteSelection(selectionId: string): Promise<boolean> {
-  const token = await getAuthToken();
   try {
     await fetchBackendApi<void>(
       `/selections/${selectionId}`,
-      token,
       { method: 'DELETE' }
     );
     console.log(`Selection ${selectionId} deleted successfully.`);

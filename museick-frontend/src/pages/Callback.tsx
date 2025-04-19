@@ -55,18 +55,12 @@ const Callback: React.FC = () => {
             console.log('Callback: Clerk ready, attempting Spotify code exchange...');
 
             try {
-                const jwt = await getToken();
-                if (!jwt) {
-                    // This case should be rare if isSignedIn is true, but handle defensively
-                    throw new Error("Clerk token unavailable despite being signed in.");
-                }
-
                 // REMOVE verifier just before using it or after successful use
                 const verifierToUse = storedVerifier; // Keep a reference
                 localStorage.removeItem('spotify_code_verifier'); // Clean up now
                 console.log('Callback: Removed verifier from localStorage.');
 
-                const tokenData = await exchangeSpotifyCode(code, verifierToUse, jwt);
+                const tokenData = await exchangeSpotifyCode(code, verifierToUse);
                 // --- DETAILED LOGGING ---
                 console.log('Callback: Received tokenData from backend:', JSON.stringify(tokenData)); // Log the whole object
 

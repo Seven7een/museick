@@ -8,7 +8,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StarIcon from '@mui/icons-material/Star';
-import { useAuth } from '@clerk/clerk-react';
 
 import { SpotifyGridItem, GridItemType, SpotifyTrackItem, SpotifyAlbumItem, SpotifyArtistItem } from '@/types/spotify.types';
 import { SelectionRole, UserSelection } from '@/types/museick.types';
@@ -75,7 +74,6 @@ export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
   open, onClose, monthIndex, monthName, year, onSelectReplacement, mode, itemType, currentItem
 }) => {
   const theme = useTheme();
-  const { getToken } = useAuth(); // Get getToken function
   const [searchTerm, setSearchTerm] = useState('');
   const [displayedItems, setDisplayedItems] = useState<DisplayListItem[]>([]);
   const [shortlistItems, setShortlistItems] = useState<DisplayListItem[]>([]); // Holds candidates + current item
@@ -109,7 +107,7 @@ export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
         // Fetch details for each relevant selection
         const detailedItemsPromises = relevantSelections.map(async (sel: UserSelection) => { // Add type annotation
           try {
-            const details = await getSpotifyItemDetails(sel.spotify_item_id, itemType, getToken);
+            const details = await getSpotifyItemDetails(sel.spotify_item_id, itemType);
             // Combine Spotify details with our selection info
             return {
             ...details,
@@ -135,7 +133,7 @@ export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
     } finally {
       setLoadingShortlist(false);
     }
-  }, [open, monthIndex, candidateMonthYear, itemType, targetSelectedRole, targetCandidateRole, getToken]);
+  }, [open, monthIndex, candidateMonthYear, itemType, targetSelectedRole, targetCandidateRole]);
 
 
   // Reset state and fetch shortlist when modal opens
@@ -174,7 +172,7 @@ export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
     try {
       // Ensure itemType is one of the valid types for searchSpotify
       const validSearchTypes: ('track' | 'artist' | 'album')[] = [itemType];
-      const results = await searchSpotify(searchTerm, validSearchTypes, 20, getToken);
+      const results = await searchSpotify(searchTerm, validSearchTypes, 20);
 
       let spotifyResults: DisplayListItem[] = [];
 
@@ -200,7 +198,7 @@ export const SelectionReplaceModal: React.FC<SelectionReplaceModalProps> = ({
     } finally {
       setLoadingSearch(false); // Use specific loading state
     }
-  }, [searchTerm, itemType, getToken]);
+  }, [searchTerm, itemType]);
 
   // Add item to shortlist (as candidate)
   const handleAddCandidate = async (item: DisplayListItem) => {

@@ -7,7 +7,6 @@ import {
   SpotifyUserTopItems
 } from '@/types/spotify.types';
 // NOTE: We cannot use useAuth hook directly here as this is not a React component.
-// Instead, the calling component will need to pass the getToken function.
 
 const BASE_URL = 'https://api.spotify.com/v1';
 
@@ -18,10 +17,9 @@ let refreshPromise: Promise<string | null> | null = null;
 /**
  * Attempts to refresh the Spotify token using the backend endpoint.
  * Manages concurrent refresh attempts.
- * @param getClerkToken Function to retrieve the current Clerk JWT.
  * @returns The new access token, or null if refresh fails.
  */
-const attemptTokenRefresh = async (getClerkToken: () => Promise<string | null>): Promise<string | null> => {
+const attemptTokenRefresh = async (): Promise<string | null> => {
     if (isRefreshing && refreshPromise) {
         console.log("Token refresh already in progress, waiting...");
         return refreshPromise; // Wait for the ongoing refresh
@@ -37,11 +35,8 @@ const attemptTokenRefresh = async (getClerkToken: () => Promise<string | null>):
 
     refreshPromise = (async () => {
         try {
-            const jwt = await getClerkToken();
-            if (!jwt) {
-                throw new Error("Clerk token unavailable for Spotify refresh.");
-            }
-            const refreshResponse = await refreshSpotifyToken(jwt);
+            console.log('Attempting to refresh Spotify token...');
+            const refreshResponse = await refreshSpotifyToken();
             const newAccessToken = refreshResponse.access_token;
 
             if (newAccessToken) {
@@ -87,7 +82,6 @@ export async function handleSpotifyResponse(response: Response) {
  * Performs a fetch request to the Spotify API, automatically including the access token
  * and handling token refresh on 401/403 errors.
  * @param endpoint The specific API endpoint (e.g., '/me/top/tracks').
- * @param getClerkToken Function to retrieve the current Clerk JWT (needed for refresh).
  * @param options Standard Fetch API options (method, headers, body).
  * @param retryAttempt Internal flag to prevent infinite refresh loops.
  * @returns Promise resolving to the parsed JSON response.
@@ -95,7 +89,6 @@ export async function handleSpotifyResponse(response: Response) {
  */
 const callSpotifyApiWithRefresh = async <T = any>(
     endpoint: string,
-    getClerkToken: () => Promise<string | null>, // Pass Clerk's getToken
     options: RequestInit = {},
     retryAttempt: boolean = false // Flag to prevent infinite retry loops
 ): Promise<T> => {
@@ -105,7 +98,7 @@ const callSpotifyApiWithRefresh = async <T = any>(
     // If no token exists initially, try refreshing immediately *if* backend stores refresh tokens
     // This handles the case where the user returns after the access token expired but refresh token is valid
     console.log("No initial access token found, attempting refresh...");
-    accessToken = await attemptTokenRefresh(getClerkToken);
+    accessToken = await attemptTokenRefresh();
     if (!accessToken) {
         // Still no token after refresh attempt, throw error
         console.error(`Attempted to call Spotify API endpoint ${endpoint} without access token and refresh failed.`);
@@ -150,12 +143,12 @@ const callSpotifyApiWithRefresh = async <T = any>(
       // If it's an auth error (401/403) AND we haven't already retried
       if (isAuthError && !retryAttempt) {
         console.warn("Spotify API call failed with auth error. Attempting token refresh...");
-        const newAccessToken = await attemptTokenRefresh(getClerkToken);
+        const newAccessToken = await attemptTokenRefresh();
 
         if (newAccessToken) {
           console.log("Token refreshed. Retrying original API call...");
           // Retry the original request with the new token, marking it as a retry
-          return callSpotifyApiWithRefresh(endpoint, getClerkToken, options, true);
+          return callSpotifyApiWithRefresh(endpoint, options, true);
         } else {
           // Refresh failed, throw the original-style error
            console.error("Token refresh failed. Cannot retry API call.");
@@ -201,14 +194,13 @@ const callSpotifyApiWithRefresh = async <T = any>(
 export const searchSpotify = async (
   query: string,
   types: ('track' | 'artist' | 'album')[] = ['track', 'artist', 'album'], // Default to searching all types
-  limit: number = 10, // Default limit
-  getClerkToken: () => Promise<string | null> // Require getToken
+  limit: number = 10 // Default limit
 ): Promise<SpotifySearchResults> => {
   const typeString = types.join(',');
   const endpoint = `/search?q=${encodeURIComponent(query)}&type=${typeString}&limit=${limit}`;
 
   // Spotify search returns { tracks: { items: [...] }, artists: { items: [...] }, ... }
-  const data = await callSpotifyApiWithRefresh<any>(endpoint, getClerkToken); // Use wrapper
+  const data = await callSpotifyApiWithRefresh<any>(endpoint); // Use wrapper
 
   // Extract items or provide empty arrays if a type wasn't searched or returned
   const results: SpotifySearchResults = {
@@ -225,13 +217,12 @@ export const searchSpotify = async (
  */
 export const getMyTopTracks = async (
     timeRange: 'short_term' | 'medium_term' | 'long_term' = 'long_term', // Default to long_term
-    limit: number = 5, // Default limit
-  getClerkToken: () => Promise<string | null> // Require getToken
+    limit: number = 5 // Default limit
 ): Promise<SpotifyTrackItem[]> => { // Return just the array of tracks
     const endpoint = `/me/top/tracks?time_range=${timeRange}&limit=${limit}`;
 
     // Spotify top items returns { items: [...] }
-    const data = await callSpotifyApiWithRefresh<SpotifyUserTopItems<SpotifyTrackItem>>(endpoint, getClerkToken); // Use wrapper
+    const data = await callSpotifyApiWithRefresh<SpotifyUserTopItems<SpotifyTrackItem>>(endpoint); // Use wrapper
 
     return data?.items ?? []; // Return the items array or empty array
 };
@@ -241,10 +232,9 @@ export const getMyTopTracks = async (
  */
 export const getSpotifyItemDetails = async (
   id: string,
-  type: 'track' | 'artist' | 'album',
-  getClerkToken: () => Promise<string | null> // Require getToken
+  type: 'track' | 'artist' | 'album'
 ): Promise<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem> => {
   const endpoint = `/${type}s/${id}`; // Use plural 'tracks', 'artists', 'albums'
-  const data = await callSpotifyApiWithRefresh<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint, getClerkToken); // Use wrapper
+  const data = await callSpotifyApiWithRefresh<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint); // Use wrapper
   return data;
 };

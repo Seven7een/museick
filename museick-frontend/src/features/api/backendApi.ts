@@ -1,27 +1,34 @@
 import { SpotifyGridItem } from '@/types/spotify.types';
 import { GridMode, GridItemType } from '@/types/spotify.types';
 
-const BASE_URL = '/api'; // Use relative path for proxy
+const BASE_URL = '/api';
+
+let getTokenFunction: (() => Promise<string | null>) | null = null;
+
+export function initializeAuthToken(getToken: () => Promise<string | null>) {
+  getTokenFunction = getToken;
+}
+
+async function getAuthToken(): Promise<string> {
+  if (!getTokenFunction) {
+    console.error('Auth token getter not initialized. Call initializeAuthToken first.');
+    throw new Error('Authentication not properly initialized');
+  }
+  const token = await getTokenFunction();
+  if (!token) {
+    throw new Error('Authentication token not found');
+  }
+  return token;
+}
 
 /**
  * Performs a fetch request to the backend API, automatically including the Clerk JWT and Spotify token.
- * @param endpoint The specific API endpoint (e.g., '/users/sync').
- * @param jwt The Clerk JWT token (MUST be passed in).
- * @param options Standard Fetch API options (method, headers, body).
- * @returns Promise resolving to the parsed JSON response.
- * @throws Error if the fetch fails, JWT is missing, or the response is not ok.
  */
 const _fetchBackendApi = async <T = any>(
     endpoint: string,
-    jwt: string | null, // Accept JWT as an argument
     options: RequestInit = {}
 ): Promise<T> => {
-
-  if (!jwt) {
-    console.error(`Attempted to call backend API endpoint ${endpoint} without JWT.`);
-    throw new Error("Authentication token is missing.");
-  }
-
+  const jwt = await getAuthToken();
   const url = `${BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers || {});
   
@@ -35,8 +42,8 @@ const _fetchBackendApi = async <T = any>(
   }
   
   // Set content type for JSON bodies
-  if (options.body && !(options.body instanceof FormData)) { // Don't set Content-Type for FormData
-      headers.set('Content-Type', 'application/json');
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
   }
 
   try {
@@ -59,12 +66,12 @@ const _fetchBackendApi = async <T = any>(
 
     // Handle 204 No Content specifically
     if (response.status === 204) {
-        return undefined as T; // Handle No Content
+      return undefined as T;
     }
     return await response.json() as T;
   } catch (error) {
     console.error(`Network or other error fetching ${url}:`, error);
-    throw error; // Re-throw error for caller to handle
+    throw error;
   }
 };
 
@@ -72,16 +79,13 @@ export const fetchBackendApi = _fetchBackendApi;
 
 /**
  * Exchanges the Spotify authorization code for tokens via the backend.
- * Requires Clerk JWT.
  */
 export const exchangeSpotifyCode = async (
     code: string,
     code_verifier: string,
-    jwt: string | null // Accept JWT
 ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> => {
     return _fetchBackendApi<{ access_token: string; refresh_token: string; expires_in: number }>(
         '/spotify/exchange-code',
-        jwt, // Pass JWT down
         {
             method: 'POST',
             body: JSON.stringify({ code, code_verifier }),
@@ -91,43 +95,30 @@ export const exchangeSpotifyCode = async (
 
 /**
  * Calls the backend to refresh the Spotify access token using the stored refresh token.
- * Requires Clerk JWT.
  */
-export const refreshSpotifyToken = async (
-    jwt: string | null // Accept JWT
-): Promise<{ access_token: string; expires_in: number }> => { // Backend only returns access token now
+export const refreshSpotifyToken = async (): Promise<{ access_token: string; expires_in: number }> => {
     return _fetchBackendApi<{ access_token: string; expires_in: number }>(
         '/spotify/refresh-token',
-        jwt, // Pass JWT down
         {
             method: 'POST',
-            // No body needed, backend uses stored refresh token
         }
     );
 };
-
 
 /**
  * Syncs the Clerk user with the backend database.
- * Ensures a user record exists in the backend corresponding to the Clerk user.
- * Requires Clerk JWT.
  */
-export const syncUserWithBackend = async (jwt: string | null): Promise<void> => {
-    // This endpoint might return 204 No Content on success
+export const syncUserWithBackend = async (): Promise<void> => {
     await _fetchBackendApi<void>(
         '/users/sync',
-        jwt, // Pass JWT down
         {
             method: 'POST',
-            // No body needed, user identified by JWT
         }
     );
 };
 
-
 /**
  * Saves or updates a user's selection for a specific month/year/mode.
- * Requires Clerk JWT.
  */
 export const saveUserSelection = async (
     year: number,
@@ -135,16 +126,12 @@ export const saveUserSelection = async (
     mode: GridMode,
     itemType: GridItemType,
     selectedItem: SpotifyGridItem,
-    jwt: string | null // Accept JWT
-): Promise<any> => { // Define a proper return type if the backend sends one
+): Promise<any> => {
     return _fetchBackendApi<any>(
-        '/user-selections', // Example endpoint, adjust as needed
-        jwt, // Pass JWT down
+        '/user-selections',
         {
-            method: 'POST', // Or PUT if updating
+            method: 'POST',
             body: JSON.stringify({ year, monthIndex, mode, itemType, item: selectedItem }),
         }
     );
 };
-
-// TODO: Add other backend API functions here...

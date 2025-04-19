@@ -3,21 +3,19 @@ import {
   Box, Typography, List, ListItem, ListItemText, ListItemAvatar,
    Avatar, CircularProgress, Alert,
  } from '@mui/material';
- import { useAuth } from '@clerk/clerk-react';
- import { SpotifyTrackItem } from '@/types/spotify.types';
- import { getMyTopTracks } from '@/features/spotify/spotifyApi';
+import { SpotifyTrackItem } from '@/types/spotify.types';
+import { getMyTopTracks } from '@/features/spotify/spotifyApi';
 
- interface SpotifyTopSongsProps {
+interface SpotifyTopSongsProps {
   isConnected: boolean; // Receive connection status from parent
 }
 
- const SpotifyTopSongs: React.FC<SpotifyTopSongsProps> = ({ isConnected }) => {
-   const { getToken } = useAuth();
-   const [topTracks, setTopTracks] = useState<SpotifyTrackItem[]>([]);
-   const [loading, setLoading] = useState<boolean>(false);
-   const [error, setError] = useState<string | null>(null);
+const SpotifyTopSongs: React.FC<SpotifyTopSongsProps> = ({ isConnected }) => {
+  const [topTracks, setTopTracks] = useState<SpotifyTrackItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-   useEffect(() => {
+  useEffect(() => {
     // Only fetch if the parent component confirms connection
     if (!isConnected) {
         // Optionally clear previous tracks if connection is lost
@@ -26,25 +24,24 @@ import {
         return;
     }
 
-    const fetchTracks = async () => {
-      setLoading(true);
-       setError(null);
-       try {
-         const tracks = await getMyTopTracks('long_term', 5, getToken);
-         setTopTracks(tracks);
-       } catch (err: any) {
-        console.error("Error fetching top tracks:", err);
-        setError(err.message || 'Failed to fetch top tracks from Spotify.');
+    const fetchTopTracks = async () => {
+      try {
+        setLoading(true);
+        const tracks = await getMyTopTracks('long_term', 5);
+        setTopTracks(tracks);
+      } catch (error) {
+        console.error('Error fetching top tracks:', error);
+        setError('Failed to fetch top tracks');
       } finally {
         setLoading(false);
       }
-     };
+    };
 
-     fetchTracks();
-     // Re-run effect if isConnected status changes or getToken changes (though unlikely)
-   }, [isConnected, getToken]);
+    fetchTopTracks();
+    // Re-run effect if isConnected status changes
+  }, [isConnected]);
 
-   // If not connected, don't show loading/error/empty states related to fetching
+  // If not connected, don't show loading/error/empty states related to fetching
   if (!isConnected) {
     return null; // Or some placeholder indicating connection is needed
   }

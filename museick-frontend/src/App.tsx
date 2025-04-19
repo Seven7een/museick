@@ -12,9 +12,7 @@ import TracksPage from '@/pages/TracksPage';
 import ArtistsPage from '@/pages/ArtistsPage';
 import AlbumsPage from '@/pages/AlbumsPage';
 
-import { syncUserWithBackend } from '@/features/api/backendApi';
-import { initializeAuthToken as initializeSelectionAuthToken } from '@/services/selectionApi';
-import { initializeAuthToken as initializePlaylistAuthToken } from '@/services/playlistApi';
+import { initializeAuthToken, syncUserWithBackend } from '@/features/api/backendApi';
 import { ThemeProvider, useThemeContext } from './context/ThemeContext';
 
 // Main App Content Component (to allow hooks within Router context)
@@ -22,34 +20,26 @@ const AppContent: React.FC = () => {
   const { isSignedIn, isLoaded, getToken } = useAuth();
   const [hasSyncedUser, setHasSyncedUser] = useState(false); // Flag for Clerk user sync
 
-  // Initialize the auth token getter for both APIs immediately
+  // Initialize the auth token getter immediately
   useEffect(() => {
-    initializeSelectionAuthToken(getToken);
-    initializePlaylistAuthToken(getToken);
+    initializeAuthToken(getToken);
   }, [getToken]);
 
   // Effect: Sync Clerk User with Backend & Handle Logout Cleanup
   useEffect(() => {
     const syncUser = async () => {
-      if (!isSignedIn || hasSyncedUser) return; // Only sync if signed in and not already synced
+      if (!isSignedIn || hasSyncedUser) return;
 
       try {
         console.log("Clerk user signed in, attempting to sync with backend...");
-        const token = await getToken();
-        if (!token) {
-            console.warn("Could not get Clerk token for backend sync.");
-            return;
-        }
-        await syncUserWithBackend(token);
+        await syncUserWithBackend();
         console.log("Backend user sync successful.");
-        setHasSyncedUser(true); // Mark sync as complete for this session
+        setHasSyncedUser(true);
       } catch (error) {
         console.error("Failed to sync user with backend:", error);
-        // TODO: Implement retry logic or user notification?
       }
     };
 
-    // Trigger sync when Clerk is loaded and user is signed in
     if (isLoaded) {
       syncUser();
     }
