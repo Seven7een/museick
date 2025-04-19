@@ -1,11 +1,16 @@
 import { fetchBackendApi } from '@/features/api/backendApi';
 
+interface CreatePlaylistResponse {
+  message: string;
+  url: string;
+}
+
 export const createYearlyPlaylist = async (
   year: number, 
   mode: 'muse' | 'ick', 
   includeCandidates: boolean
-): Promise<any> => {
-  return fetchBackendApi(
+): Promise<CreatePlaylistResponse> => {
+  return fetchBackendApi<CreatePlaylistResponse>(
     '/playlists',
     {
       method: 'POST',

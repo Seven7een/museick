@@ -4,7 +4,8 @@ import {
   SpotifyTrackItem,
   SpotifyArtistItem,
   SpotifyAlbumItem,
-  SpotifyUserTopItems
+  SpotifyUserTopItems,
+  SpotifyImage
 } from '@/types/spotify.types';
 // NOTE: We cannot use useAuth hook directly here as this is not a React component.
 
@@ -237,4 +238,12 @@ export const getSpotifyItemDetails = async (
   const endpoint = `/${type}s/${id}`; // Use plural 'tracks', 'artists', 'albums'
   const data = await callSpotifyApiWithRefresh<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint); // Use wrapper
   return data;
+};
+
+/**
+ * Get the images for a playlist
+ */
+export const getPlaylistImages = async (playlistId: string): Promise<SpotifyImage[]> => {
+  const endpoint = `/playlists/${playlistId}/images`;
+  return await callSpotifyApiWithRefresh<SpotifyImage[]>(endpoint);
 };

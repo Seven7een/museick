@@ -12,7 +12,6 @@ import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
 import YearSelect from '@/components/yearly/YearSelect';
 import CreatePlaylistModal from '@/components/yearly/CreatePlaylistModal';
 import { GridItemType, GridMode } from '@/types/spotify.types';
-import { createYearlyPlaylist } from '@/services/playlistApi';
 
 interface SelectionPageLayoutProps {
   itemType: GridItemType;
@@ -28,7 +27,6 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
   const { mode, setMode } = useThemeContext();
   const [visibleMode, setVisibleMode] = useState<GridMode>(mode); // Initialize from theme
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
-  const [playlistError, setPlaylistError] = useState<string | null>(null);
 
   // Sync local state with theme context
   useEffect(() => {
@@ -44,17 +42,6 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
 
   const handleYearChange = (newYear: number) => {
     navigate(`/${itemType}s/${newYear}`);
-  };
-
-  const handleCreatePlaylist = async (includeCandidates: boolean) => {
-    try {
-      setPlaylistError(null);
-      await createYearlyPlaylist(year, visibleMode, includeCandidates);
-      setPlaylistModalOpen(false);
-    } catch (error) {
-      console.error('Failed to create playlist:', error);
-      setPlaylistError(error instanceof Error ? error.message : 'Failed to create playlist');
-    }
   };
 
   if (!isSignedIn) {
@@ -136,8 +123,6 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
           onClose={() => setPlaylistModalOpen(false)}
           year={year}
           mode={visibleMode}
-          onCreatePlaylist={handleCreatePlaylist}
-          error={playlistError}
         />
       )}
     </Container>

@@ -34,7 +34,7 @@ func (h *PlaylistHandler) CreatePlaylist(c *gin.Context) {
 	userID := c.GetString(middleware.ClerkUserIDKey)
 	spotifyToken := c.GetHeader("X-Spotify-Token")
 
-	err := h.playlistService.CreateYearlyPlaylist(
+	playlistURL, err := h.playlistService.CreateYearlyPlaylist(
 		c.Request.Context(),
 		userID,
 		spotifyToken,
@@ -49,5 +49,8 @@ func (h *PlaylistHandler) CreatePlaylist(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Playlist created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Playlist created successfully",
+		"url": playlistURL,
+	})
 }

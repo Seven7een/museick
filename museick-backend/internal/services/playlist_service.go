@@ -21,7 +21,7 @@ func NewPlaylistService(userSelectionDAO dao.UserSelectionDAO, spotifyService *S
 	}
 }
 
-func (s *PlaylistService) CreateYearlyPlaylist(ctx context.Context, userID string, spotifyToken string, year int, mode string, includeCandidates bool) error {
+func (s *PlaylistService) CreateYearlyPlaylist(ctx context.Context, userID string, spotifyToken string, year int, mode string, includeCandidates bool) (string, error) {
 	// Get all tracks for the year based on mode and includeCandidates
 	selectionRoles := []string{mode + "_selected"}
 	if includeCandidates {
@@ -31,11 +31,11 @@ func (s *PlaylistService) CreateYearlyPlaylist(ctx context.Context, userID strin
 	// Get user's selections for the year
 	selections, err := s.userSelectionDAO.GetUserSelectionsForYear(ctx, userID, year, "track", selectionRoles)
 	if err != nil {
-		return fmt.Errorf("failed to get selections: %w", err)
+		return "", fmt.Errorf("failed to get selections: %w", err)
 	}
 
 	if len(selections) == 0 {
-		return fmt.Errorf("no tracks found for year %d", year)
+		return "", fmt.Errorf("no tracks found for year %d", year)
 	}
 
 	// Create Spotify client
@@ -44,15 +44,15 @@ func (s *PlaylistService) CreateYearlyPlaylist(ctx context.Context, userID strin
 	// Get user ID from Spotify
 	user, err := client.CurrentUser(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get Spotify user: %w", err)
+		return "", fmt.Errorf("failed to get Spotify user: %w", err)
 	}
 
 	// Create playlist
-	playlistName := fmt.Sprintf("%d %ss", year, mode)
+	playlistName := fmt.Sprintf("Museick.app - %d %ss", year, mode)
 	description := fmt.Sprintf("My %s tracks from %d", mode, year)
 	playlist, err := client.CreatePlaylistForUser(ctx, user.ID, playlistName, description, false, false)
 	if err != nil {
-		return fmt.Errorf("failed to create playlist: %w", err)
+		return "", fmt.Errorf("failed to create playlist: %w", err)
 	}
 
 	// Add tracks in batches of 100 (Spotify API limit)
@@ -70,9 +70,10 @@ func (s *PlaylistService) CreateYearlyPlaylist(ctx context.Context, userID strin
 		batch := trackIDs[i:end]
 		_, err = client.AddTracksToPlaylist(ctx, playlist.ID, batch...)
 		if err != nil {
-			return fmt.Errorf("failed to add tracks to playlist: %w", err)
+			return "", fmt.Errorf("failed to add tracks to playlist: %w", err)
 		}
 	}
 
-	return nil
+	// Return the external URL of the playlist
+	return playlist.ExternalURLs["spotify"], nil
 }
