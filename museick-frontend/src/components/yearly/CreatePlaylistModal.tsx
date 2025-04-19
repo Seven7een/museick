@@ -130,7 +130,7 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
                   }
                   label={
                     <Typography variant="body1">
-                      Include {mode === 'muse' ? 'potential muses' : 'potential icks'}
+                      Include {mode === 'muse' ? 'muses shortlist' : 'icks shortlist'}
                     </Typography>
                   }
                 />

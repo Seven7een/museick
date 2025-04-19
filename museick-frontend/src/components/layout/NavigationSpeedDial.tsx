@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, SpeedDial, SpeedDialIcon, SpeedDialAction } from '@mui/material';
+import { Box, SpeedDial, SpeedDialAction } from '@mui/material';
 import { useAuth } from "@clerk/clerk-react";
 
 import HomeIcon from '@mui/icons-material/Home';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PersonIcon from '@mui/icons-material/Person';
 import AlbumIcon from '@mui/icons-material/Album';
+import MenuIcon from '@mui/icons-material/Menu';
 
 // Define the navigation actions with an optional 'requiresAuth' flag
 const actions = [
@@ -49,7 +50,7 @@ const NavigationSpeedDial: React.FC = () => {
       <SpeedDial
         ariaLabel="Navigation speed dial"
         sx={{ position: 'absolute', bottom: 0, right: 0 }}
-        icon={<SpeedDialIcon />}
+        icon={<MenuIcon />}
         onClose={handleClose}
         onOpen={handleOpen}
         open={open}

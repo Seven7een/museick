@@ -102,14 +102,17 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
       <Box 
         sx={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
+          flexDirection: { xs: 'column', sm: 'row' },
           alignItems: 'center',
+          justifyContent: { xs: 'center', sm: 'space-between' },
+          gap: { xs: 2, sm: 0 },
           mb: 3,
-          px: 2
+          px: 2,
+          textAlign: { xs: 'center', sm: 'left' }
         }}
       >
         <Typography variant="h5" component="h1">
-          {year} {visibleMode === 'muse' ? 'Muses' : 'Icks'} - {pageTitle}
+          {visibleMode === 'muse' ? 'Muses' : 'Icks'}: {pageTitle}
         </Typography>
         
         {itemType === 'track' && (
@@ -117,8 +120,9 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
             variant="contained"
             onClick={() => setPlaylistModalOpen(true)}
             startIcon={<PlaylistAddIcon />}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
           >
-            Make into Spotify playlist!
+            Turn into Spotify playlist
           </Button>
         )}
       </Box>
