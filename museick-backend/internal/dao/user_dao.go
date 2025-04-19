@@ -15,7 +15,8 @@ import (
 type UserDAO interface {
 	FindBySub(ctx context.Context, sub string) (*models.User, error)
 	Create(ctx context.Context, user *models.User) error
-	// TODO: Add other methods like Update, Delete if needed
+	UpdateRefreshToken(ctx context.Context, sub string, refreshToken string) error
+	// TODO: Add other methods like Delete if needed
 }
 
 // userDAOImpl implements the UserDAO interface using MongoDB.
@@ -76,5 +77,27 @@ func (dao *userDAOImpl) Create(ctx context.Context, user *models.User) error {
 		return fmt.Errorf("error creating user: %w", err) // Wrap internal error
 	}
 	log.Printf("Successfully created user with sub '%s'\n", user.Sub)
+	return nil
+}
+
+// UpdateRefreshToken updates the Spotify refresh token for a user identified by their sub.
+func (dao *userDAOImpl) UpdateRefreshToken(ctx context.Context, sub string, refreshToken string) error {
+	filter := bson.M{"sub": sub}
+	update := bson.M{
+		"$set": bson.M{"spotify_refresh_token": refreshToken},
+	}
+
+	result, err := dao.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Printf("Error updating refresh token for user sub '%s': %v\n", sub, err)
+		return fmt.Errorf("error updating refresh token: %w", err)
+	}
+
+	if result.MatchedCount == 0 {
+		log.Printf("Attempted to update refresh token for non-existent user sub '%s'\n", sub)
+		return fmt.Errorf("user with sub '%s' not found for refresh token update", sub) // Or return nil if this is acceptable
+	}
+
+	log.Printf("Successfully updated refresh token for user sub '%s'\n", sub)
 	return nil
 }

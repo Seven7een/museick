@@ -24,7 +24,7 @@ const HomePage: React.FC = () => {
   // Effect to check Spotify token status on mount and when sign-in status changes
   useEffect(() => {
     if (isSignedIn) {
-      const token = sessionStorage.getItem('spotify_access_token');
+      const token = localStorage.getItem('spotify_access_token');
       setIsSpotifyConnected(!!token);
       // Reset prompt visibility if user logs in and isn't connected
       setShowSpotifyPrompt(!token);
@@ -36,8 +36,8 @@ const HomePage: React.FC = () => {
 
   // Effect hook for the general Snackbar
   useEffect(() => {
-    const status = sessionStorage.getItem('spotify_auth_status');
-    const errorDetails = sessionStorage.getItem('spotify_auth_error_details');
+    const status = localStorage.getItem('spotify_auth_status');
+    const errorDetails = localStorage.getItem('spotify_auth_error_details');
     if (status) {
       if (status === 'success') {
         setSnackbarMessage('Spotify connected successfully!');
@@ -50,8 +50,8 @@ const HomePage: React.FC = () => {
       }
       setSnackbarOpen(true);
       // Clean up status flags after showing message
-      sessionStorage.removeItem('spotify_auth_status');
-      sessionStorage.removeItem('spotify_auth_error_details');
+      localStorage.removeItem('spotify_auth_status');
+      localStorage.removeItem('spotify_auth_error_details');
     }
   }, []); // Runs once on mount to check for redirect status
 

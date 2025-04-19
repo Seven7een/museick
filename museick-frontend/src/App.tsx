@@ -54,12 +54,11 @@ const AppContent: React.FC = () => {
 
     // Cleanup on sign-out
     if (isLoaded && !isSignedIn) {
-        console.log("Clerk user signed out, clearing Spotify token and sync status.");
-        sessionStorage.removeItem('spotify_access_token');
+        console.log("Clerk user signed out, clearing Spotify token and sync status from localStorage.");
+        localStorage.removeItem('spotify_access_token');
         // TODO: Optionally clear refresh token if stored elsewhere
-        // sessionStorage.removeItem('spotify_refresh_token');
-        sessionStorage.removeItem('spotify_auth_status'); // Clear any pending status
-        sessionStorage.removeItem('spotify_auth_error_details');
+        localStorage.removeItem('spotify_auth_status'); // Clear any pending status from localStorage
+        localStorage.removeItem('spotify_auth_error_details');
         // Clear pending flags just in case (might be redundant but safe)
         localStorage.removeItem('spotify_code_verifier');
 

@@ -83,7 +83,7 @@ func main() {
 
 	// Handlers
 	userHandler := handlers.NewUserHandler(userService)
-	spotifyHandler := handlers.NewSpotifyHandler(spotifyService)           // Handles auth code exchange from frontend, refresh etc.
+	spotifyHandler := handlers.NewSpotifyHandler(spotifyService, userDAO)
 	selectionHandler := handlers.NewSelectionHandler(userSelectionService) // Handles POST/GET/PUT/DELETE on /selections
 
 	// --- End Dependency Injection ---

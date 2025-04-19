@@ -78,6 +78,24 @@ export const exchangeSpotifyCode = async (
 };
 
 /**
+ * Calls the backend to refresh the Spotify access token using the stored refresh token.
+ * Requires Clerk JWT.
+ */
+export const refreshSpotifyToken = async (
+    jwt: string | null // Accept JWT
+): Promise<{ access_token: string; expires_in: number }> => { // Backend only returns access token now
+    return _fetchBackendApi<{ access_token: string; expires_in: number }>(
+        '/spotify/refresh-token',
+        jwt, // Pass JWT down
+        {
+            method: 'POST',
+            // No body needed, backend uses stored refresh token
+        }
+    );
+};
+
+
+/**
  * Syncs the Clerk user with the backend database.
  * Ensures a user record exists in the backend corresponding to the Clerk user.
  * Requires Clerk JWT.

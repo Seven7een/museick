@@ -93,7 +93,8 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 
 		log.Printf("✅ Successfully authenticated user: %s", userID)
 		c.Set(ClerkClaimsKey, sessClaims)
-		c.Set(ClerkUserIDKey, userID)
+		// Use the string "user_sub" to match handler expectations
+		c.Set("user_sub", userID)
 		c.Next()
 	}
 }

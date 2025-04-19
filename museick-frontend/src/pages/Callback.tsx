@@ -21,8 +21,8 @@ const Callback: React.FC = () => {
             if (error) {
                 console.error('Spotify callback error:', error);
                 setProcessingState('error');
-                sessionStorage.setItem('spotify_auth_status', 'error');
-                sessionStorage.setItem('spotify_auth_error_details', `Spotify login failed: ${error}`);
+                localStorage.setItem('spotify_auth_status', 'error');
+                localStorage.setItem('spotify_auth_error_details', `Spotify login failed: ${error}`);
                 // Clean up verifier if Spotify itself returned an error
                 if (storedVerifier) {
                     localStorage.removeItem('spotify_code_verifier');
@@ -41,8 +41,8 @@ const Callback: React.FC = () => {
             if (!code || !storedVerifier) {
                 console.error('Missing code or verifier after Clerk loaded.');
                 setProcessingState('error');
-                sessionStorage.setItem('spotify_auth_status', 'error');
-                sessionStorage.setItem('spotify_auth_error_details', 'Spotify callback missing required info after Clerk load.');
+                localStorage.setItem('spotify_auth_status', 'error');
+                localStorage.setItem('spotify_auth_error_details', 'Spotify callback missing required info after Clerk load.');
                  // Clean up verifier if it exists but code is missing
                 if (storedVerifier) {
                     localStorage.removeItem('spotify_code_verifier');
@@ -71,13 +71,21 @@ const Callback: React.FC = () => {
                 console.log('Callback: Received tokenData from backend:', JSON.stringify(tokenData)); // Log the whole object
 
                 if (tokenData && tokenData.access_token) {
-                    console.log('Callback: Attempting to set spotify_access_token...');
-                    sessionStorage.setItem('spotify_access_token', tokenData.access_token);
-                    console.log('Callback: spotify_access_token potentially set.'); // Check browser console AND storage
+                    // --- Add specific try/catch for storage ---
+                    try {
+                        console.log('Callback: Attempting to set spotify_access_token in localStorage...');
+                        localStorage.setItem('spotify_access_token', tokenData.access_token);
+                        console.log('Callback: spotify_access_token potentially set in localStorage.'); // Check browser console AND storage
 
-                    console.log('Callback: Attempting to set spotify_auth_status...');
-                    sessionStorage.setItem('spotify_auth_status', 'success');
-                    console.log('Callback: spotify_auth_status potentially set.');
+                        console.log('Callback: Attempting to set spotify_auth_status in localStorage...');
+                        localStorage.setItem('spotify_auth_status', 'success');
+                        console.log('Callback: spotify_auth_status potentially set in localStorage.');
+                    } catch (storageError) {
+                        console.error("Callback: CRITICAL ERROR setting localStorage:", storageError);
+                        // Throw a new error to be caught by the outer catch block, making it visible
+                        throw new Error(`Failed to write to localStorage: ${storageError instanceof Error ? storageError.message : String(storageError)}`); // Update error message
+                    }
+                    // --- End specific try/catch ---
 
                     console.log('Callback: Dispatching spotifyAuthSuccess event...');
                     window.dispatchEvent(new CustomEvent('spotifyAuthSuccess'));
@@ -97,8 +105,8 @@ const Callback: React.FC = () => {
             } catch (err: any) {
                 console.error("Error during Spotify token exchange in Callback:", err);
                 setProcessingState('error');
-                sessionStorage.setItem('spotify_auth_status', 'error');
-                sessionStorage.setItem('spotify_auth_error_details', err.message || 'Failed to exchange Spotify code with backend.');
+                localStorage.setItem('spotify_auth_status', 'error');
+                localStorage.setItem('spotify_auth_error_details', err.message || 'Failed to exchange Spotify code with backend.');
 
                 // Ensure verifier is cleaned up even on error during exchange
                 if (localStorage.getItem('spotify_code_verifier')) {

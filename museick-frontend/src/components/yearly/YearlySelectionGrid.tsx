@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import { useAuth } from '@clerk/clerk-react';
 
 import MonthSlot from '@/components/yearly/MonthSlot';
 import { SelectionReplaceModal } from '@/components/yearly/SelectionReplaceModal';
@@ -23,6 +24,7 @@ interface YearlySelectionGridProps {
 
 // --- Corrected Component Name ---
 const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemType, year }) => {
+  const { getToken } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMonthIndex, setEditingMonthIndex] = useState<number | null>(null);
   // State holds the selected item for each month, potentially undefined
@@ -48,7 +50,7 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
           const selectedEntry = selections.find(sel => sel.selection_role === targetSelectedRole && sel.item_type === itemType);
 
           if (selectedEntry) {
-            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_item_id, itemType);
+            const itemDetails = await getSpotifyItemDetails(selectedEntry.spotify_item_id, itemType, getToken);
             // Augment itemDetails with selection info
             itemDetails.selectionId = selectedEntry.id;
             itemDetails.selectionRole = selectedEntry.selection_role;
@@ -71,7 +73,7 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
     } finally {
       setLoading(false);
     }
-  }, [year, mode, itemType, targetSelectedRole]);
+  }, [year, mode, itemType, targetSelectedRole, getToken]);
 
   useEffect(() => {
     fetchMonthlySelections();
