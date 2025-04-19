@@ -35,10 +35,16 @@ More ideas at the end of the README - feel free to suggest what you want to see!
 - **Backend**: Go (Golang) with Gin framework
 - **Database**: MongoDB
 
+<br>
+ 
 - **Deployments**: Railway
 - **Static hosting**: Nginx
 - **Containerisation**: Docker
 - **CI/CD**: GitHub Actions
+
+<br>
+
+- **Backend API docs**: Swagg/Swagger UI
 
 ---
 
