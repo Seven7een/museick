@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Container, ToggleButtonGroup, ToggleButton, Fade, Paper, Button } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
@@ -16,13 +16,17 @@ interface SelectionPageLayoutProps {
 }
 
 const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year, pageTitle }) => {
-  const [visibleMode, setVisibleMode] = useState<GridMode>('muse');
   const { isSignedIn } = useAuth();
-  const { setMode } = useThemeContext();
+  const { mode, setMode } = useThemeContext();
+  const [visibleMode, setVisibleMode] = useState<GridMode>(mode); // Initialize from theme
+
+  // Sync local state with theme context
+  useEffect(() => {
+    setVisibleMode(mode);
+  }, [mode]);
 
   const handleModeChange = (_: React.MouseEvent<HTMLElement>, newMode: GridMode | null) => {
     if (newMode !== null) {
-      console.log('Changing mode to:', newMode);
       setVisibleMode(newMode);
       setMode(newMode);
     }
