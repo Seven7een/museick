@@ -107,9 +107,9 @@ const AppContent: React.FC = () => {
           <Route path="/callback" element={<Callback />} />
           <Route path="/playground" element={<Playground />} />
 {/* TODO: Protect these routes based on isSignedIn */}
-          <Route path="/tracks" element={<TracksPage />} />
-          <Route path="/artists" element={<ArtistsPage />} />
-          <Route path="/albums" element={<AlbumsPage />} />
+          <Route path="/tracks/:year?" element={<TracksPage />} />
+          <Route path="/artists/:year?" element={<ArtistsPage />} />
+          <Route path="/albums/:year?" element={<AlbumsPage />} />
 {/* TODO: Add a 404 Not Found route */}
         </Routes>
       </Container>

@@ -5,17 +5,22 @@ import HeartBrokenIcon from '@mui/icons-material/HeartBroken';
 import { useAuth } from "@clerk/clerk-react";
 import { SignInButton as ClerkSignInButton } from "@clerk/clerk-react";
 import { useThemeContext } from '@/context/ThemeContext';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import YearlySelectionGrid from '@/components/yearly/YearlySelectionGrid';
+import YearSelect from '@/components/yearly/YearSelect';
 import { GridItemType, GridMode } from '@/types/spotify.types';
 
 interface SelectionPageLayoutProps {
   itemType: GridItemType;
-  year: number;
   pageTitle: string;
 }
 
-const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, year, pageTitle }) => {
+const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pageTitle }) => {
+  const navigate = useNavigate();
+  const { year: yearParam } = useParams();
+  const year = parseInt(yearParam || new Date().getFullYear().toString(), 10);
+
   const { isSignedIn } = useAuth();
   const { mode, setMode } = useThemeContext();
   const [visibleMode, setVisibleMode] = useState<GridMode>(mode); // Initialize from theme
@@ -30,6 +35,10 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
       setVisibleMode(newMode);
       setMode(newMode);
     }
+  };
+
+  const handleYearChange = (newYear: number) => {
+    navigate(`/${itemType}s/${newYear}`);
   };
 
   if (!isSignedIn) {
@@ -52,9 +61,15 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, yea
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        {year} {pageTitle}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1">
+          {pageTitle}
+        </Typography>
+        <YearSelect 
+          currentYear={year} 
+          onYearSelect={handleYearChange}
+        />
+      </Box>
 
       {/* Toggle Button Group */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
