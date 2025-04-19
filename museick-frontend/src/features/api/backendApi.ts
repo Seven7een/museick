@@ -5,6 +5,54 @@ const BASE_URL = '/api';
 
 let getTokenFunction: (() => Promise<string | null>) | null = null;
 
+// --- Helper to manage token refresh state to prevent infinite loops ---
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+/**
+ * Attempts to refresh the Spotify token using the backend endpoint.
+ * Manages concurrent refresh attempts.
+ * @returns The new access token, or null if refresh fails.
+ */
+export const attemptTokenRefresh = async (): Promise<string | null> => {
+    if (isRefreshing && refreshPromise) {
+        console.log("Token refresh already in progress, waiting...");
+        return refreshPromise;
+    }
+    if (isRefreshing && !refreshPromise) {
+        console.warn("Refresh state inconsistent, blocking new refresh.");
+        return null;
+    }
+
+    isRefreshing = true;
+    console.log("Attempting Spotify token refresh via backend...");
+
+    refreshPromise = (async () => {
+        try {
+            const refreshResponse = await refreshSpotifyToken();
+            const newAccessToken = refreshResponse.access_token;
+
+            if (newAccessToken) {
+                console.log("Spotify token refreshed successfully. Storing new token.");
+                localStorage.setItem('spotify_access_token', newAccessToken);
+                return newAccessToken;
+            } else {
+                throw new Error("Backend refresh response did not contain access_token.");
+            }
+        } catch (refreshError) {
+            console.error("Spotify token refresh failed:", refreshError);
+            localStorage.removeItem('spotify_access_token');
+            window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+            return null;
+        } finally {
+            isRefreshing = false;
+            refreshPromise = null;
+        }
+    })();
+
+    return refreshPromise;
+};
+
 export function initializeAuthToken(getToken: () => Promise<string | null>) {
   getTokenFunction = getToken;
 }

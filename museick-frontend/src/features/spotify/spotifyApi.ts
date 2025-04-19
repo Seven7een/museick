@@ -1,4 +1,4 @@
-import { refreshSpotifyToken } from '@/features/api/backendApi';
+import { attemptTokenRefresh } from '@/features/api/backendApi';
 import {
   SpotifySearchResults,
   SpotifyTrackItem,
@@ -7,61 +7,10 @@ import {
   SpotifyUserTopItems,
   SpotifyImage
 } from '@/types/spotify.types';
-// NOTE: We cannot use useAuth hook directly here as this is not a React component.
 
 const BASE_URL = 'https://api.spotify.com/v1';
 
-// --- Helper to manage token refresh state to prevent infinite loops ---
-let isRefreshing = false;
-let refreshPromise: Promise<string | null> | null = null;
-
-/**
- * Attempts to refresh the Spotify token using the backend endpoint.
- * Manages concurrent refresh attempts.
- * @returns The new access token, or null if refresh fails.
- */
-const attemptTokenRefresh = async (): Promise<string | null> => {
-    if (isRefreshing && refreshPromise) {
-        console.log("Token refresh already in progress, waiting...");
-        return refreshPromise; // Wait for the ongoing refresh
-    }
-    if (isRefreshing && !refreshPromise) {
-        // Should not happen, but handle defensively
-        console.warn("Refresh state inconsistent, blocking new refresh.");
-        return null;
-    }
-
-    isRefreshing = true;
-    console.log("Attempting Spotify token refresh via backend...");
-
-    refreshPromise = (async () => {
-        try {
-            console.log('Attempting to refresh Spotify token...');
-            const refreshResponse = await refreshSpotifyToken();
-            const newAccessToken = refreshResponse.access_token;
-
-            if (newAccessToken) {
-                console.log("Spotify token refreshed successfully. Storing new token.");
-                localStorage.setItem('spotify_access_token', newAccessToken);
-                // TODO: Potentially store expires_in and calculate expiry time client-side?
-                return newAccessToken;
-            } else {
-                throw new Error("Backend refresh response did not contain access_token.");
-            }
-        } catch (refreshError) {
-            console.error("Spotify token refresh failed:", refreshError);
-            localStorage.removeItem('spotify_access_token'); // Clear potentially invalid token
-            window.dispatchEvent(new CustomEvent('spotifyAuthExpired')); // Signal auth failure
-            return null; // Indicate refresh failure
-        } finally {
-            isRefreshing = false; // Reset refresh state
-            refreshPromise = null; // Clear the promise
-        }
-    })();
-
-    return refreshPromise;
-};
-
+// Define custom error for Spotify authentication issues
 export class SpotifyAuthError extends Error {
   constructor(message: string) {
     super(message);
@@ -69,181 +18,151 @@ export class SpotifyAuthError extends Error {
   }
 }
 
+// Helper to handle common Spotify response patterns and errors
 export async function handleSpotifyResponse(response: Response) {
   if (response.status === 401) {
+    // Throw specific error for auth issues, triggering refresh logic
     throw new SpotifyAuthError('Spotify authentication required');
   }
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || 'Unknown error occurred');
+  // For non-JSON responses or empty bodies (like 204 No Content)
+  if (response.status === 204) {
+    return null; // Or undefined, depending on expected handling
   }
-  return data;
+  if (!response.ok) {
+    let errorMsg = `Spotify API Error: ${response.status} ${response.statusText}`;
+    try {
+      const errorBody = await response.json();
+      errorMsg += ` - ${errorBody.error?.message || JSON.stringify(errorBody)}`;
+    } catch (e) { /* Ignore if body isn't JSON */ }
+    throw new Error(errorMsg);
+  }
+  // Only parse JSON if there's content
+  if (response.headers.get('content-length') === '0') {
+      return null;
+  }
+  try {
+      return await response.json();
+  } catch (e) {
+      console.error("Failed to parse Spotify JSON response", e);
+      throw new Error("Failed to parse Spotify response");
+  }
 }
+
 /**
- * Performs a fetch request to the Spotify API, automatically including the access token
- * and handling token refresh on 401/403 errors.
- * @param endpoint The specific API endpoint (e.g., '/me/top/tracks').
- * @param options Standard Fetch API options (method, headers, body).
- * @param retryAttempt Internal flag to prevent infinite refresh loops.
- * @returns Promise resolving to the parsed JSON response.
- * @throws Error if the fetch fails, token is missing/invalid after refresh, or the response is not ok.
+ * Internal function to handle Spotify API requests with token management
  */
-const callSpotifyApiWithRefresh = async <T = any>(
+const _fetchFromSpotifyApi = async <T = any>(
     endpoint: string,
     options: RequestInit = {},
-    retryAttempt: boolean = false // Flag to prevent infinite retry loops
+    retryAttempt: boolean = false
 ): Promise<T> => {
-  let accessToken = localStorage.getItem('spotify_access_token'); // Use localStorage
+    let accessToken = localStorage.getItem('spotify_access_token');
 
-  if (!accessToken && !retryAttempt) { // Only try initial refresh if not already retrying
-    // If no token exists initially, try refreshing immediately *if* backend stores refresh tokens
-    // This handles the case where the user returns after the access token expired but refresh token is valid
-    console.log("No initial access token found, attempting refresh...");
-    accessToken = await attemptTokenRefresh();
-    if (!accessToken) {
-        // Still no token after refresh attempt, throw error
-        console.error(`Attempted to call Spotify API endpoint ${endpoint} without access token and refresh failed.`);
-        window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
-        throw new Error("Spotify access token is missing and refresh failed. Please connect Spotify.");
-    }
-    console.log("Refresh successful, proceeding with initial call using new token.");
-  } else if (!accessToken && retryAttempt) {
-      // If token is missing even on retry, something went wrong with refresh
-      console.error(`Access token still missing after refresh attempt for ${endpoint}.`);
-      window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
-      throw new Error("Spotify access token is missing after refresh attempt. Please connect Spotify.");
-  }
-
-
-  const url = `${BASE_URL}${endpoint}`;
-  const headers = new Headers(options.headers || {});
-  headers.set('Authorization', `Bearer ${accessToken}`); // Use current token
-  // Spotify API often uses Content-Type: application/json for POST/PUT
-  if (options.body && !(options.body instanceof FormData)) {
-      headers.set('Content-Type', 'application/json');
-  }
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
-
-    let isAuthError = false;
-    if (!response.ok) {
-      let errorMsg = `Spotify API request failed: ${response.status} ${response.statusText}`;
-      isAuthError = response.status === 401 || response.status === 403;
-      try {
-        const errorBody = await response.json();
-        errorMsg += ` - ${errorBody.error?.message || JSON.stringify(errorBody)}`;
-      } catch (e) {
-        // Ignore if response body is not JSON or empty
-      }
-      console.error(`Error fetching ${url}: ${errorMsg}`);
-
-      // If it's an auth error (401/403) AND we haven't already retried
-      if (isAuthError && !retryAttempt) {
-        console.warn("Spotify API call failed with auth error. Attempting token refresh...");
-        const newAccessToken = await attemptTokenRefresh();
-
-        if (newAccessToken) {
-          console.log("Token refreshed. Retrying original API call...");
-          // Retry the original request with the new token, marking it as a retry
-          return callSpotifyApiWithRefresh(endpoint, options, true);
-        } else {
-          // Refresh failed, throw the original-style error
-           console.error("Token refresh failed. Cannot retry API call.");
-           // Ensure token is cleared if refresh fails definitively
-           localStorage.removeItem('spotify_access_token');
-           window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
-           throw new Error("Your Spotify session is invalid and refresh failed. Please connect Spotify again.");
+    if (!accessToken && !retryAttempt) {
+        console.log("No initial access token found, attempting refresh...");
+        accessToken = await attemptTokenRefresh();
+        if (!accessToken) {
+            console.error(`Attempted to call Spotify API endpoint ${endpoint} without access token and refresh failed.`);
+            window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+            throw new SpotifyAuthError("Spotify access token is missing and refresh failed. Please connect Spotify.");
         }
-      } else if (isAuthError && retryAttempt) {
-          // Auth error even after retry, means refresh didn't work or new token is also bad
-          console.error("Spotify API call failed with auth error even after refresh/retry.");
-          localStorage.removeItem('spotify_access_token'); // Clear potentially invalid token
-          window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
-          throw new Error("Your Spotify session is invalid even after attempting refresh. Please connect Spotify again.");
-      }
-
-      // For non-auth errors, or auth errors on retry, throw the detailed error
-      throw new Error(errorMsg);
+    } else if (!accessToken && retryAttempt) {
+        console.error(`Access token still missing after refresh attempt for ${endpoint}.`);
+        window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+        throw new SpotifyAuthError("Spotify access token is missing after refresh attempt. Please connect Spotify.");
     }
 
-     // Handle cases with no content (though less common for Spotify GET requests)
-     if (response.status === 204) {
-        return undefined as T;
+    const url = `${BASE_URL}${endpoint}`;
+    const headers = new Headers(options.headers || {});
+    headers.set('Authorization', `Bearer ${accessToken}`);
+    
+    if (options.body && !(options.body instanceof FormData)) {
+        headers.set('Content-Type', 'application/json');
     }
 
-    return await response.json() as T;
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers,
+        });
 
-  } catch (error) {
-    console.error(`Network or other error fetching ${url}:`, error);
-    // Re-throw if it's not already the specific auth error
-    if (!(error instanceof Error && error.message.includes("Spotify session is invalid"))) {
+        // Use the handleSpotifyResponse helper, but catch SpotifyAuthError specifically for refresh
+        return await handleSpotifyResponse(response);
+
+    } catch (error) {
+        // If it's an auth error AND we haven't already retried, attempt refresh
+        if (error instanceof SpotifyAuthError && !retryAttempt) {
+            console.warn("Spotify API call failed with auth error. Attempting token refresh...");
+            const newAccessToken = await attemptTokenRefresh();
+
+            if (newAccessToken) {
+                console.log("Token refreshed. Retrying original API call...");
+                return _fetchFromSpotifyApi(endpoint, options, true); // Retry the call
+            } else {
+                console.error("Token refresh failed. Cannot retry API call.");
+                localStorage.removeItem('spotify_access_token');
+                window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+                throw new SpotifyAuthError("Your Spotify session is invalid and refresh failed. Please connect Spotify again.");
+            }
+        } else if (error instanceof SpotifyAuthError && retryAttempt) {
+             console.error("Spotify API call failed with auth error even after refresh/retry.");
+             localStorage.removeItem('spotify_access_token');
+             window.dispatchEvent(new CustomEvent('spotifyAuthExpired'));
+             throw new SpotifyAuthError("Your Spotify session is invalid even after attempting refresh. Please connect Spotify again.");
+        }
+        
+        // Re-throw other errors (network errors, non-auth API errors)
+        console.error(`Network or other error fetching ${url}:`, error);
         throw error;
-    } else {
-        // If it IS the specific auth error, it's already been handled/thrown, so just re-throw it
-        throw error;
     }
-  }
 };
 
 /**
  * Searches Spotify for tracks, artists, and albums.
  */
 export const searchSpotify = async (
-  query: string,
-  types: ('track' | 'artist' | 'album')[] = ['track', 'artist', 'album'], // Default to searching all types
-  limit: number = 10 // Default limit
+    query: string,
+    types: ('track' | 'artist' | 'album')[] = ['track', 'artist', 'album'],
+    limit: number = 10
 ): Promise<SpotifySearchResults> => {
-  const typeString = types.join(',');
-  const endpoint = `/search?q=${encodeURIComponent(query)}&type=${typeString}&limit=${limit}`;
+    const typeString = types.join(',');
+    const endpoint = `/search?q=${encodeURIComponent(query)}&type=${typeString}&limit=${limit}`;
+    const data = await _fetchFromSpotifyApi<any>(endpoint);
 
-  // Spotify search returns { tracks: { items: [...] }, artists: { items: [...] }, ... }
-  const data = await callSpotifyApiWithRefresh<any>(endpoint); // Use wrapper
-
-  // Extract items or provide empty arrays if a type wasn't searched or returned
-  const results: SpotifySearchResults = {
-    tracks: data.tracks?.items ?? [],
-    artists: data.artists?.items ?? [],
-    albums: data.albums?.items ?? [],
-  };
-
-  return results;
+    return {
+        tracks: data.tracks?.items ?? [],
+        artists: data.artists?.items ?? [],
+        albums: data.albums?.items ?? [],
+    };
 };
 
 /**
  * Fetches the current user's top tracks from Spotify.
  */
 export const getMyTopTracks = async (
-    timeRange: 'short_term' | 'medium_term' | 'long_term' = 'long_term', // Default to long_term
-    limit: number = 5 // Default limit
-): Promise<SpotifyTrackItem[]> => { // Return just the array of tracks
+    timeRange: 'short_term' | 'medium_term' | 'long_term' = 'long_term',
+    limit: number = 5
+): Promise<SpotifyTrackItem[]> => {
     const endpoint = `/me/top/tracks?time_range=${timeRange}&limit=${limit}`;
-
-    // Spotify top items returns { items: [...] }
-    const data = await callSpotifyApiWithRefresh<SpotifyUserTopItems<SpotifyTrackItem>>(endpoint); // Use wrapper
-
-    return data?.items ?? []; // Return the items array or empty array
+    const data = await _fetchFromSpotifyApi<SpotifyUserTopItems<SpotifyTrackItem>>(endpoint);
+    return data?.items ?? [];
 };
 
 /**
  * Fetches details for a specific Spotify item (track, artist, or album) by ID and type.
  */
 export const getSpotifyItemDetails = async (
-  id: string,
-  type: 'track' | 'artist' | 'album'
+    id: string,
+    type: 'track' | 'artist' | 'album'
 ): Promise<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem> => {
-  const endpoint = `/${type}s/${id}`; // Use plural 'tracks', 'artists', 'albums'
-  const data = await callSpotifyApiWithRefresh<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint); // Use wrapper
-  return data;
+    const endpoint = `/${type}s/${id}`;
+    return await _fetchFromSpotifyApi<SpotifyTrackItem | SpotifyArtistItem | SpotifyAlbumItem>(endpoint);
 };
 
 /**
  * Get the images for a playlist
  */
 export const getPlaylistImages = async (playlistId: string): Promise<SpotifyImage[]> => {
-  const endpoint = `/playlists/${playlistId}/images`;
-  return await callSpotifyApiWithRefresh<SpotifyImage[]>(endpoint);
+    const endpoint = `/playlists/${playlistId}/images`;
+    return await _fetchFromSpotifyApi<SpotifyImage[]>(endpoint);
 };

@@ -114,7 +114,12 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
             <Typography variant="h4" component="div" sx={{ mb: 1 }}>
               Create Playlist
             </Typography>
-            <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+            <Typography 
+              variant="subtitle1" 
+              color="text.secondary" 
+              gutterBottom 
+              component="div"
+            >
               Turn your {year} {mode}s into a Spotify playlist
             </Typography>
           </DialogTitle>
