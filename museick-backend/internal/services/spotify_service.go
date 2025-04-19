@@ -4,7 +4,7 @@ import (
 	"encoding/base64" // Added for Basic Auth
 	"encoding/json"
 	"fmt"
-	"io" // Added for reading response body
+	"io"  // Added for reading response body
 	"log" // Added for logging
 	"net/http"
 	"net/url"

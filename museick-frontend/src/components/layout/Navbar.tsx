@@ -15,7 +15,7 @@ const Navbar: React.FC = () => {
 
   // Effect to manage Spotify connection status and listen for updates
   useEffect(() => {
-    // Function to check the current token status in localStorage
+    // Function to check the current token status in sessionStorage
     const checkToken = () => {
       const token = localStorage.getItem('spotify_access_token');
       setIsSpotifyConnected(!!token); // Update state based on token presence
@@ -30,19 +30,11 @@ const Navbar: React.FC = () => {
       setIsSpotifyConnected(true);
     };
 
-    // Define the handler for the 'spotifyAuthExpired' event
-    const handleAuthExpired = () => {
-        console.log('Navbar received spotifyAuthExpired event, updating state.');
-        setIsSpotifyConnected(false);
-    };
-
     window.addEventListener('spotifyAuthSuccess', handleAuthSuccess);
-    window.addEventListener('spotifyAuthExpired', handleAuthExpired); // Listen for expiry/clear event
 
     // Cleanup function
     return () => {
       window.removeEventListener('spotifyAuthSuccess', handleAuthSuccess);
-      window.removeEventListener('spotifyAuthExpired', handleAuthExpired); // Clean up expiry listener
     };
   }, []);
 
@@ -57,7 +49,6 @@ const Navbar: React.FC = () => {
     console.log('Disconnecting Spotify...');
     localStorage.removeItem('spotify_access_token');
     setIsSpotifyConnected(false);
-    // Consider if reload is still necessary or if state update is enough
     window.location.reload(); // Reload to reflect changes everywhere
   };
 

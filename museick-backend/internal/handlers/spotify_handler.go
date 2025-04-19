@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/services"
+	"github.com/seven7een/museick/museick-backend/middleware"
 )
+
 // SpotifyHandler contains methods for handling Spotify-related requests
 type SpotifyHandler struct {
 	SpotifyService *services.SpotifyService
@@ -40,15 +42,15 @@ func (h *SpotifyHandler) ExchangeCodeForToken(c *gin.Context) {
 	log.Printf("Received /exchange-code request: Code=%s, Verifier=%s", request.Code, request.CodeVerifier)
 
 	// Get user sub from context (set by auth middleware)
-	userSub, exists := c.Get("user_sub")
+	userSub, exists := c.Get(middleware.ClerkUserIDKey)
 	if !exists {
-		log.Println("Error: user_sub not found in context for /exchange-code")
+		log.Println("Error: %s not found in context for /exchange-code", middleware.ClerkUserIDKey)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User identifier not found in token"})
 		return
 	}
 	subString, ok := userSub.(string)
 	if !ok || subString == "" {
-		log.Println("Error: user_sub in context is not a valid string for /exchange-code")
+		log.Println("Error: %s in context is not a valid string for /exchange-code", middleware.ClerkUserIDKey)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user identifier in token"})
 		return
 	}
@@ -102,15 +104,15 @@ func (h *SpotifyHandler) ExchangeCodeForToken(c *gin.Context) {
 // This endpoint MUST be protected by authentication middleware
 func (h *SpotifyHandler) RefreshAccessToken(c *gin.Context) {
 	// Get user sub from context (set by auth middleware)
-	userSub, exists := c.Get("user_sub")
+	userSub, exists := c.Get(middleware.ClerkUserIDKey)
 	if !exists {
-		log.Println("Error: user_sub not found in context for /refresh-token")
+		log.Println("Error: %s not found in context for /refresh-token", middleware.ClerkUserIDKey)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User identifier not found in token"})
 		return
 	}
 	subString, ok := userSub.(string)
 	if !ok || subString == "" {
-		log.Println("Error: user_sub in context is not a valid string for /refresh-token")
+		log.Println("Error: %s in context is not a valid string for /refresh-token", middleware.ClerkUserIDKey)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user identifier in token"})
 		return
 	}

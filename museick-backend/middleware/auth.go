@@ -19,7 +19,7 @@ const ClerkClientKey = "clerkClient"
 const ClerkClaimsKey = "clerkClaims"
 
 // ClerkUserIDKey is the key used to store the user's sub (subject) ID in the Gin context.
-const ClerkUserIDKey = "userID"
+const ClerkUserIDKey = "user_sub"
 
 // SetupClerk initializes the Clerk client and adds it to the context.
 func SetupClerk() gin.HandlerFunc {
@@ -93,8 +93,7 @@ func AuthenticateClerkJWT() gin.HandlerFunc {
 
 		log.Printf("✅ Successfully authenticated user: %s", userID)
 		c.Set(ClerkClaimsKey, sessClaims)
-		// Use the string "user_sub" to match handler expectations
-		c.Set("user_sub", userID)
+		c.Set(ClerkUserIDKey, userID)
 		c.Next()
 	}
 }

@@ -6,7 +6,7 @@ import { SpotifyAuthError } from '@/features/spotify/spotifyApi';
 
 // Helper function to add both Clerk and Spotify tokens to headers
 const getAuthHeaders = async (jwt: string): Promise<HeadersInit> => {
-    const spotifyToken = sessionStorage.getItem('spotify_access_token');
+    const spotifyToken = localStorage.getItem('spotify_access_token');
     return {
         'Authorization': `Bearer ${jwt}`,
         'Content-Type': 'application/json',

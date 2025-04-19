@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/seven7een/museick/museick-backend/internal/services"
+	"github.com/seven7een/museick/museick-backend/middleware"
 )
 
 // UserHandler handles HTTP requests related to users.
@@ -23,17 +24,16 @@ func NewUserHandler(userService services.UserService) *UserHandler {
 // and calls the user service to ensure the user exists in the database.
 func (h *UserHandler) SyncUser(c *gin.Context) {
 	// Retrieve user ID (sub) from context set by AuthenticateClerkJWT middleware
-	// Use the string "user_sub" which the middleware now sets
-	userIDValue, exists := c.Get("user_sub")
+	userIDValue, exists := c.Get(middleware.ClerkUserIDKey)
 	if !exists {
-		log.Println("Error in SyncUser handler: 'user_sub' not found in context.") // Update log
+		log.Println("Error in SyncUser handler: '%s' not found in context.", middleware.ClerkUserIDKey) // Update log
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User identifier missing"})
 		return
 	}
 
 	userID, ok := userIDValue.(string)
 	if !ok || userID == "" {
-		log.Println("Error in SyncUser handler: Invalid 'user_sub' type or empty in context.") // Update log
+		log.Println("Error in SyncUser handler: Invalid %s type or empty in context.", middleware.ClerkUserIDKey) // Update log
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user identifier"})
 		return
 	}
