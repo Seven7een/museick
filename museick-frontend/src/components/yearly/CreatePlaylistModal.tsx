@@ -16,8 +16,10 @@ import {
   CardContent,
   Typography,
   Stack,
+  Skeleton,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import AlbumIcon from '@mui/icons-material/Album';
 import { createYearlyPlaylist } from '@/services/playlistApi';
 import { getPlaylistImages } from '@/features/spotify/spotifyApi';
 import type { SpotifyImage } from '@/types/spotify.types';
@@ -37,12 +39,14 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [playlistImage, setPlaylistImage] = useState<SpotifyImage | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
   const playlistName = `Museick.app - ${year} ${mode}s`;
 
   // Extract playlist ID from URL and fetch image when playlist is created
   useEffect(() => {
     const fetchPlaylistImage = async (url: string) => {
       try {
+        setImageLoading(true);
         const playlistId = url.split('/playlist/')[1];
         if (!playlistId) return;
 
@@ -51,6 +55,9 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
         setPlaylistImage(images[0] || images[images.length - 1]);
       } catch (err) {
         console.error('Failed to fetch playlist image:', err);
+        setPlaylistImage(null);
+      } finally {
+        setImageLoading(false);
       }
     };
 
@@ -166,17 +173,47 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
       ) : (
         <Box sx={{ p: 0 }}>
           <Card elevation={0}>
-            <CardMedia
-              component="img"
-              image={playlistImage?.url || '/path/to/fallback-image.jpg'}
-              alt="Playlist Cover"
-              sx={{
+            {imageLoading ? (
+              <Skeleton 
+                variant="rectangular" 
+                width="100%" 
+                sx={{ 
+                  aspectRatio: '1/1'
+                }} 
+              />
+            ) : (
+              <Box sx={{ 
+                position: 'relative',
                 width: '100%',
-                height: 'auto',
                 aspectRatio: '1/1',
-                objectFit: 'cover'
-              }}
-            />
+                bgcolor: 'grey.100'
+              }}>
+                {playlistImage?.url ? (
+                  <CardMedia
+                    component="img"
+                    image={playlistImage.url}
+                    alt="Playlist Cover"
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    onError={() => setPlaylistImage(null)}
+                  />
+                ) : (
+                  <Box sx={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'grey.100'
+                  }}>
+                    <AlbumIcon sx={{ fontSize: 80, color: 'grey.400' }} />
+                  </Box>
+                )}
+              </Box>
+            )}
             <CardContent sx={{ textAlign: 'center', pt: 3 }}>
               <Typography variant="h5" gutterBottom>
                 {playlistName}
