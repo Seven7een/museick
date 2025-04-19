@@ -53,7 +53,6 @@ const getSecondaryText = (itemData?: SpotifyGridItem): string => {
   return 'Artist'; // Fallback for Artist if no genres
 };
 
-
 const MonthSlot: React.FC<MonthSlotProps> = ({
   monthIndex, monthName, mode, itemType, onSlotClick, itemData, ariaLabel
 }) => {
@@ -93,81 +92,164 @@ const MonthSlot: React.FC<MonthSlotProps> = ({
 
   return (
     <Paper
-      elevation={isExpanded ? 6 : 2} // Increase elevation when expanded
+      elevation={3}
       sx={{
-        aspectRatio: '1 / 1', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
-        border: mode === 'ick' ? `2px solid ${theme.palette.error.light}` : `2px solid transparent`,
-        transition: theme.transitions.create(['border-color', 'box-shadow']),
-        '&:hover': { boxShadow: isExpanded ? 6 : 3 }, // Keep higher shadow on hover if expanded
-        '&:active': { boxShadow: 1 }
+        position: 'relative',
+        aspectRatio: '1',
+        width: '100%',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: 'grey.200', // Fallback color when no image
       }}
-      role="group" aria-label={ariaLabel}
     >
-      {/* Top Part (80%) */}
-      <Box onClick={handleImageClick} sx={{
-          height: '80%', width: '100%', position: 'relative', backgroundColor: 'grey.200',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          overflow: 'hidden', // Ensure image doesn't overflow
-          '&:hover .fab-play': { opacity: 1 } // Show play button on hover
-        }}>
-        {imageUrl ? ( <img src={imageUrl} alt={`Art for ${primaryText}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> )
-         : ( <PlaceholderIcon sx={{ fontSize: '3rem', color: 'grey.400' }} /> )}
-        {canPlay && ( <Fab className="fab-play" color="primary" size="small" aria-label="Play snippet" onClick={handlePlayClick} sx={{ position: 'absolute', bottom: 8, right: 8, zIndex: 2, opacity: 0.85, transition: 'opacity 0.2s ease-in-out' }}> <PlayArrowIcon /> </Fab> )}
-      </Box>
-
-      {/* Bottom Part (20%) */}
-      <Box onClick={handleToggleExpand} sx={{ // Make entire bottom bar clickable for expand/collapse
-          height: '20%', width: '100%', p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          backgroundColor: 'background.paper', borderTop: `1px solid ${theme.palette.divider}`, cursor: 'pointer',
-          zIndex: 1, position: 'relative',
-          borderBottomLeftRadius: 0, //isExpanded ? 0 : theme.shape.borderRadius, // Adjust radius based on expansion
-          borderBottomRightRadius: 0, //isExpanded ? 0 : theme.shape.borderRadius,
-          transition: theme.transitions.create(['border-radius'], { duration: theme.transitions.duration.short }),
-        }}
-        aria-expanded={isExpanded} aria-controls={`item-details-${monthIndex}`}
-      >
-        <Box sx={{ overflow: 'hidden', mr: 1 }}>
-          <Typography variant="caption" noWrap fontWeight="medium">
-            {itemData ? primaryText : monthName}
-          </Typography>
-          {itemData && (
-            <Typography variant="caption" display="block" noWrap sx={{ color: 'text.secondary' }}>
-              {secondaryText}
-            </Typography>
-          )}
-        </Box>
-        <IconButton size="small" aria-label={isExpanded ? 'Collapse details' : 'Expand details'}>
-          {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
-      </Box>
-
-      {/* Expanded Details Section */}
-      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-        <Box id={`item-details-${monthIndex}`}
+      {/* Background Image Container */}
+      {itemData && (
+        <Box
           sx={{
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-            bgcolor: 'rgba(0, 0, 0, 0.85)', color: 'white', zIndex: 3,
-            p: 2, pt: 8, // Add padding top to avoid overlap with close button
-            overflowY: 'auto', display: 'flex', flexDirection: 'column',
-            borderRadius: 0 // theme.shape.borderRadius, // Match paper's radius
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 1,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '20%',
+              background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)',
+              zIndex: 2,
+            },
           }}
         >
-          <IconButton aria-label="Close details" onClick={handleToggleExpand} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 4 }}>
-            <CloseIcon fontSize="small"/>
-          </IconButton>
-          {/* Detailed Info */}
-          <Typography variant="h6" gutterBottom>{primaryText}</Typography>
-          <Typography variant="body2" gutterBottom>{secondaryText}</Typography>
-          {itemData && 'album' in itemData && itemData.album && ( <Typography variant="body2" gutterBottom>Album: {itemData.album.name}</Typography> )}
-          {itemData && 'release_date' in itemData && itemData.release_date && ( <Typography variant="body2" gutterBottom>Released: {itemData.release_date}</Typography> )}
-          {itemData && 'popularity' in itemData && ( <Typography variant="body2" gutterBottom>Popularity: {itemData.popularity}</Typography> )}
-          <Typography variant="body2" gutterBottom>Spotify ID: {itemData?.id || 'N/A'}</Typography>
-          {/* Add more details as needed */}
-          <Box sx={{ mt: 'auto', pt: 1 }}>
-             <Typography variant="caption" sx={{ color: 'grey.400' }}>{monthName} Details...</Typography>
-          </Box>
+          <img
+            src={getImageUrl(itemData)}
+            alt={itemData.name}
+            loading="lazy"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
         </Box>
-      </Collapse>
+      )}
+
+      {/* Content Container */}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          justifyContent: 'flex-end', // Push content to bottom
+        }}
+      >
+        {/* Click Target Area (top 80%) */}
+        <Box 
+          onClick={handleImageClick}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '80%',
+            cursor: 'pointer',
+          }}
+        >
+          {!imageUrl && <PlaceholderIcon sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '3rem', color: 'grey.400' }} />}
+          {canPlay && (
+            <Fab
+              className="fab-play"
+              color="primary"
+              size="small"
+              aria-label="Play snippet"
+              onClick={handlePlayClick}
+              sx={{
+                position: 'absolute',
+                bottom: 8,
+                right: 8,
+                opacity: 0,
+                transition: 'opacity 0.2s ease-in-out',
+                '&:hover': { opacity: 1 }
+              }}
+            >
+              <PlayArrowIcon />
+            </Fab>
+          )}
+        </Box>
+
+        {/* Bottom Info Bar (20%) */}
+        <Box
+          onClick={handleToggleExpand}
+          sx={{
+            p: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            position: 'relative',
+            minHeight: '20%',
+            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            backdropFilter: 'blur(4px)',
+            color: 'white',
+            zIndex: 1,
+          }}
+          aria-expanded={isExpanded}
+          aria-controls={`item-details-${monthIndex}`}
+        >
+          <Box sx={{ overflow: 'hidden', mr: 1 }}>
+            <Typography variant="caption" noWrap fontWeight="medium" sx={{ color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+              {itemData ? primaryText : monthName}
+            </Typography>
+            {itemData && (
+              <Typography variant="caption" display="block" noWrap sx={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                {secondaryText}
+              </Typography>
+            )}
+          </Box>
+          <IconButton 
+            size="small" 
+            aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+            sx={{ color: 'white' }}
+          >
+            {isExpanded ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+          </IconButton>
+        </Box>
+
+        {/* Expanded Details Section */}
+        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+          <Box id={`item-details-${monthIndex}`}
+            sx={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              bgcolor: 'rgba(0, 0, 0, 0.85)', color: 'white', zIndex: 3,
+              p: 2, pt: 8, // Add padding top to avoid overlap with close button
+              overflowY: 'auto', display: 'flex', flexDirection: 'column',
+              borderRadius: 0 // Match paper's radius
+            }}
+          >
+            <IconButton aria-label="Close details" onClick={handleToggleExpand} size="small" sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 4 }}>
+              <CloseIcon fontSize="small"/>
+            </IconButton>
+            {/* Detailed Info */}
+            <Typography variant="h6" gutterBottom>{primaryText}</Typography>
+            <Typography variant="body2" gutterBottom>{secondaryText}</Typography>
+            {itemData && 'album' in itemData && itemData.album && ( <Typography variant="body2" gutterBottom>Album: {itemData.album.name}</Typography> )}
+            {itemData && 'release_date' in itemData && itemData.release_date && ( <Typography variant="body2" gutterBottom>Released: {itemData.release_date}</Typography> )}
+            {itemData && 'popularity' in itemData && ( <Typography variant="body2" gutterBottom>Popularity: {itemData.popularity}</Typography> )}
+            <Typography variant="body2" gutterBottom>Spotify ID: {itemData?.id || 'N/A'}</Typography>
+            {/* Add more details as needed */}
+            <Box sx={{ mt: 'auto', pt: 1 }}>
+              <Typography variant="caption" sx={{ color: 'grey.400' }}>{monthName} Details...</Typography>
+            </Box>
+          </Box>
+        </Collapse>
+      </Box>
     </Paper>
   );
 };
