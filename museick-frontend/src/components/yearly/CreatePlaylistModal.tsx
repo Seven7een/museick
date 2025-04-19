@@ -11,9 +11,13 @@ import {
   Box,
   CircularProgress,
   Alert,
-  Avatar
+  Card,
+  CardMedia,
+  CardContent,
+  Typography,
+  Stack,
 } from '@mui/material';
-import LaunchIcon from '@mui/icons-material/Launch';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { createYearlyPlaylist } from '@/services/playlistApi';
 import { getPlaylistImages } from '@/features/spotify/spotifyApi';
 import type { SpotifyImage } from '@/types/spotify.types';
@@ -33,18 +37,18 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
   const [playlistImage, setPlaylistImage] = useState<SpotifyImage | null>(null);
+  const playlistName = `Museick.app - ${year} ${mode}s`;
 
   // Extract playlist ID from URL and fetch image when playlist is created
   useEffect(() => {
     const fetchPlaylistImage = async (url: string) => {
       try {
-        // Extract playlist ID from Spotify URL
         const playlistId = url.split('/playlist/')[1];
         if (!playlistId) return;
 
         const images = await getPlaylistImages(playlistId);
-        // Use the smallest image if available
-        setPlaylistImage(images[images.length - 1] || images[0]);
+        // Use the largest image for better quality
+        setPlaylistImage(images[0] || images[images.length - 1]);
       } catch (err) {
         console.error('Failed to fetch playlist image:', err);
       }
@@ -85,78 +89,122 @@ const CreatePlaylistModal: React.FC<CreatePlaylistModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Create {year} {mode === 'muse' ? 'Muses' : 'Icks'} Playlist
-      </DialogTitle>
-      <DialogContent>
-        {!playlistUrl && (
-          <Box sx={{ mb: 2 }}>
-            <FormControl component="fieldset">
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={includeCandidates}
-                    onChange={(e) => setIncludeCandidates(e.target.checked)}
-                    disabled={isCreating}
-                  />
-                }
-                label={`Include ${mode === 'muse' ? 'potential muses' : 'potential icks'}`}
-              />
-            </FormControl>
-          </Box>
-        )}
-        
-        {error && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {error}
-          </Alert>
-        )}
-        
-        {playlistUrl && (
-          <Alert 
-            severity="success" 
-            sx={{ mt: 1 }}
-            icon={playlistImage ? 
-              <Avatar
-                src={playlistImage.url}
-                alt="Playlist cover"
-                variant="square"
-                sx={{ width: 40, height: 40 }}
-              /> : undefined
-            }
-            action={
-              <Button
-                color="inherit"
-                size="small"
-                endIcon={<LaunchIcon />}
-                href={playlistUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open
-              </Button>
-            }
-          >
-            Playlist created successfully! 
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>
-          {playlistUrl ? 'Close' : 'Cancel'}
-        </Button>
-        {!playlistUrl && (
-          <Button
-            onClick={handleCreate}
-            variant="contained"
-            disabled={isCreating}
-            startIcon={isCreating ? <CircularProgress size={20} /> : null}
-          >
-            Create Playlist
-          </Button>
-        )}
-      </DialogActions>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          overflow: 'hidden'
+        }
+      }}
+    >
+      {!playlistUrl ? (
+        <>
+          <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
+            <Typography variant="h4" component="div" sx={{ mb: 1 }}>
+              Create Playlist
+            </Typography>
+            <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+              Turn your {year} {mode}s into a Spotify playlist
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              py: 4
+            }}>
+              <FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={includeCandidates}
+                      onChange={(e) => setIncludeCandidates(e.target.checked)}
+                      disabled={isCreating}
+                      sx={{ transform: 'scale(1.2)' }}
+                    />
+                  }
+                  label={
+                    <Typography variant="body1">
+                      Include {mode === 'muse' ? 'potential muses' : 'potential icks'}
+                    </Typography>
+                  }
+                />
+              </FormControl>
+              
+              {error && (
+                <Alert severity="error" sx={{ mt: 3, width: '100%' }}>
+                  {error}
+                </Alert>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, justifyContent: 'center' }}>
+            <Button 
+              onClick={handleClose} 
+              variant="outlined" 
+              size="large"
+              sx={{ minWidth: 120 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              variant="contained"
+              size="large"
+              disabled={isCreating}
+              sx={{ minWidth: 120 }}
+            >
+              {isCreating ? <CircularProgress size={24} /> : 'Create'}
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        <Box sx={{ p: 0 }}>
+          <Card elevation={0}>
+            <CardMedia
+              component="img"
+              image={playlistImage?.url || '/path/to/fallback-image.jpg'}
+              alt="Playlist Cover"
+              sx={{
+                width: '100%',
+                height: 'auto',
+                aspectRatio: '1/1',
+                objectFit: 'cover'
+              }}
+            />
+            <CardContent sx={{ textAlign: 'center', pt: 3 }}>
+              <Typography variant="h5" gutterBottom>
+                {playlistName}
+              </Typography>
+              <Typography variant="body1" color="text.secondary" paragraph>
+                Your playlist has been created successfully!
+              </Typography>
+              <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  onClick={handleClose}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="contained"
+                  href={playlistUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  startIcon={<PlayArrowIcon />}
+                >
+                  Open in Spotify
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
     </Dialog>
   );
 };

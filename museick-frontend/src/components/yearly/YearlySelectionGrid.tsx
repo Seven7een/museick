@@ -122,8 +122,6 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
   // --- Determine Grid Title ---
   const modeTitle = mode === 'muse' ? 'Muses' : 'Icks';
   const typeTitle = itemType.charAt(0).toUpperCase() + itemType.slice(1) + 's';
-  const gridTitle = `${year} ${modeTitle}: ${typeTitle}`;
-
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>;
   }
@@ -134,9 +132,6 @@ const YearlySelectionGrid: React.FC<YearlySelectionGridProps> = ({ mode, itemTyp
 
   return (
     <Box sx={{ width: '100%', mb: 4 }}>
-      <Typography variant="h5" component="h2" gutterBottom align="center">
-        {gridTitle}
-      </Typography>
       <Grid container spacing={2}>
         {MONTHS.map((monthName, index) => {
           const item = monthlySelectedItems[index]; // Use fetched selected items

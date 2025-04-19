@@ -1,85 +1,58 @@
-import React, { useState } from 'react';
-import { 
-  Button, Dialog, DialogTitle, DialogContent, 
-  Grid, IconButton, Typography
-} from '@mui/material';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import React from 'react';
+import { IconButton, Box, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
-const MIN_YEAR = 1970;
-const MAX_YEAR = new Date().getFullYear();
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
 interface YearSelectProps {
   currentYear: number;
   onYearSelect: (year: number) => void;
+  size?: 'medium' | 'large';
 }
 
-const YearSelect: React.FC<YearSelectProps> = ({ currentYear, onYearSelect }) => {
-  const [open, setOpen] = useState(false);
-  const [decade, setDecade] = useState(Math.floor(currentYear / 10) * 10);
-
-  const handleYearClick = (year: number) => {
-    onYearSelect(year);
-    setOpen(false);
-  };
-
+const YearSelect: React.FC<YearSelectProps> = ({ 
+  currentYear, 
+  onYearSelect,
+  size = 'medium'
+}) => {
+  const isLarge = size === 'large';
+  const currentDate = new Date();
+  const maxYear = currentDate.getFullYear();
+  
   return (
-    <>
-      <Button
-        onClick={() => setOpen(true)}
-        startIcon={<CalendarMonthIcon />}
-        sx={{ ml: 2 }}
+    <Box 
+      sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: isLarge ? 3 : 1
+      }}
+    >
+      <IconButton 
+        onClick={() => onYearSelect(currentYear - 1)}
+        size={size}
+      >
+        <ArrowBackIcon sx={{ fontSize: isLarge ? 32 : 24 }} />
+      </IconButton>
+      
+      <Typography 
+        variant={isLarge ? 'h3' : 'h5'} 
+        component="span"
+        sx={{ 
+          minWidth: isLarge ? '120px' : '80px', 
+          textAlign: 'center',
+          userSelect: 'none'
+        }}
       >
         {currentYear}
-      </Button>
+      </Typography>
       
-      <Dialog 
-        open={open} 
-        onClose={() => setOpen(false)}
-        maxWidth="xs"
-        fullWidth
+      <IconButton 
+        onClick={() => onYearSelect(currentYear + 1)}
+        size={size}
+        disabled={currentYear >= maxYear}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <IconButton 
-            onClick={() => setDecade(prev => Math.max(MIN_YEAR, prev - 10))}
-            disabled={decade <= MIN_YEAR}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6">
-            {decade}s
-          </Typography>
-          <IconButton 
-            onClick={() => setDecade(prev => Math.min(MAX_YEAR - 9, prev + 10))}
-            disabled={decade >= MAX_YEAR - 9}
-          >
-            <ArrowForwardIcon />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent>
-          <Grid container spacing={1}>
-            {Array.from({ length: 10 }, (_, i) => decade + i).map(year => (
-              <Grid size={3} key={year}>
-                <Button
-                  fullWidth
-                  variant={year === currentYear ? 'contained' : 'outlined'}
-                  onClick={() => handleYearClick(year)}
-                  disabled={year > MAX_YEAR || year < MIN_YEAR}
-                >
-                  {year}
-                </Button>
-              </Grid>
-            ))}
-          </Grid>
-        </DialogContent>
-      </Dialog>
-    </>
+        <ArrowForwardIcon sx={{ fontSize: isLarge ? 32 : 24 }} />
+      </IconButton>
+    </Box>
   );
 };
 

@@ -51,6 +51,6 @@ func (h *PlaylistHandler) CreatePlaylist(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Playlist created successfully",
-		"url": playlistURL,
+		"url":     playlistURL,
 	})
 }

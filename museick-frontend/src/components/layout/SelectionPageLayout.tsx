@@ -64,30 +64,28 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 4 }}>
-        <Typography variant="h4" component="h1">
-          {year} {pageTitle}
-        </Typography>
-        <YearSelect currentYear={year} onYearSelect={handleYearChange} />
-        {itemType === 'track' && (
-          <Button
-            variant="contained"
-            onClick={() => setPlaylistModalOpen(true)}
-            startIcon={<PlaylistAddIcon />}
-          >
-            Create Playlist
-          </Button>
-        )}
+      {/* Big Calendar Select */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        mb: 6 
+      }}>
+        <YearSelect 
+          currentYear={year} 
+          onYearSelect={handleYearChange}
+          size="large"
+        />
       </Box>
 
-      {/* Toggle Button Group */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+      {/* Muses/Icks Toggle */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
         <ToggleButtonGroup
           value={visibleMode}
           exclusive
           onChange={handleModeChange}
           aria-label="Select Mode (Muses or Icks)"
           color="primary"
+          size="large"
         >
           <ToggleButton value="muse" aria-label="Show Muses (Favorites)">
             <FavoriteIcon sx={{ mr: 1 }} />
@@ -98,6 +96,31 @@ const SelectionPageLayout: React.FC<SelectionPageLayoutProps> = ({ itemType, pag
             Icks
           </ToggleButton>
         </ToggleButtonGroup>
+      </Box>
+
+      {/* Grid Header with Title and Playlist Button */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 3,
+          px: 2
+        }}
+      >
+        <Typography variant="h5" component="h1">
+          {year} {visibleMode === 'muse' ? 'Muses' : 'Icks'} - {pageTitle}
+        </Typography>
+        
+        {itemType === 'track' && (
+          <Button
+            variant="contained"
+            onClick={() => setPlaylistModalOpen(true)}
+            startIcon={<PlaylistAddIcon />}
+          >
+            Make into Spotify playlist!
+          </Button>
+        )}
       </Box>
 
       {/* Container for Grids with Fade Transition */}
