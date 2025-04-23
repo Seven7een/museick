@@ -12,6 +12,9 @@ import (
 	"github.com/seven7een/museick/museick-backend/internal/dao"
 	"github.com/seven7een/museick/museick-backend/internal/handlers"
 	"github.com/seven7een/museick/museick-backend/internal/services"
+	shuflDao "github.com/seven7een/museick/museick-backend/internal/shufl/dao"
+	shuflHandlers "github.com/seven7een/museick/museick-backend/internal/shufl/handlers"
+	shuflServices "github.com/seven7een/museick/museick-backend/internal/shufl/services"
 	"github.com/seven7een/museick/museick-backend/middleware"
 
 	swaggerFiles "github.com/swaggo/files"
@@ -75,6 +78,11 @@ func main() {
 	spotifyArtistDAO := dao.NewSpotifyArtistDAO(client, config.MongoDBName, "spotify_artists")
 	userSelectionDAO := dao.NewUserSelectionDAO(client, config.MongoDBName, "user_selections")
 
+	// Shufl DAOs
+	enrichedTrackDAO := shuflDao.NewEnrichedTrackDAO(client, config.MongoDBName)
+	userTrackPrefsDAO := shuflDao.NewUserTrackPrefsDAO(client, config.MongoDBName)
+	userLibraryDAO := shuflDao.NewUserLibraryDAO(client, config.MongoDBName)
+
 	// Core Services
 	userService := services.NewUserService(userDAO)
 	spotifyService := services.NewSpotifyService(config.SpotifyClientID, config.SpotifyClientSecret)               // Handles basic auth, token exchange with spotify
@@ -82,13 +90,21 @@ func main() {
 	userSelectionService := services.NewUserSelectionService(userSelectionDAO, spotifySyncService, spotifyService) // Pass DAOs and other services
 	playlistService := services.NewPlaylistService(userSelectionDAO, spotifyService)
 
-	// Handlers
+	// Shufl Services
+	libraryService := shuflServices.NewLibraryService(spotifyService, enrichedTrackDAO, userLibraryDAO)
+	playerService := shuflServices.NewPlayerService(spotifyService)
+	queueService := shuflServices.NewQueueService(enrichedTrackDAO, userTrackPrefsDAO)
+	activeQueueService := shuflServices.NewActiveQueueService(queueService, playerService, spotifyService, enrichedTrackDAO)
+
+	// Core Handlers
 	userHandler := handlers.NewUserHandler(userService)
 	spotifyHandler := handlers.NewSpotifyHandler(spotifyService, userDAO)
 	selectionHandler := handlers.NewSelectionHandler(userSelectionService) // Handles POST/GET/PUT/DELETE on /selections
 	playlistHandler := handlers.NewPlaylistHandler(playlistService)
 
-	// --- End Dependency Injection ---
+	// Shufl Handlers
+	playerHandler := shuflHandlers.NewPlayerHandler(spotifyService, playerService)
+	queueHandler := shuflHandlers.NewQueueHandler(queueService, playerService, activeQueueService, userTrackPrefsDAO)
 
 	log.Printf("DEBUG: Configuring CORS with AllowOrigins: %v", config.ClientOrigin)
 
@@ -149,6 +165,49 @@ func main() {
 
 		// Playlist Routes
 		api.POST("/playlists", playlistHandler.CreatePlaylist)
+
+		// Shufl Routes
+		shuflGroup := api.Group("/shufl")
+		{
+			// Library management
+			shuflGroup.GET("/playlists", playerHandler.GetPlaylists)
+			shuflGroup.POST("/playlists/import", func(c *gin.Context) {
+				userID := c.GetString("user_id")
+				spotifyToken := c.GetHeader("X-Spotify-Token")
+				var req struct {
+					PlaylistIDs []string `json:"playlist_ids"`
+				}
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+					return
+				}
+				if err := libraryService.ImportUserPlaylists(c, userID, req.PlaylistIDs, spotifyToken); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{"message": "Playlists imported successfully"})
+			})
+
+			// Player controls
+			player := shuflGroup.Group("/player")
+			{
+				player.GET("/currently-playing", playerHandler.GetCurrentlyPlaying)
+				player.PUT("/:action", playerHandler.ControlPlayback)
+			}
+
+			// Queue management
+			queue := shuflGroup.Group("/queue")
+			{
+				queue.POST("/start", queueHandler.StartNewSession)
+				queue.GET("", queueHandler.GetQueue)
+			}
+
+			// Track preferences
+			prefs := shuflGroup.Group("/preferences")
+			{
+				prefs.POST("/:trackId", queueHandler.UpdateTrackPreference)
+			}
+		}
 	}
 
 	log.Printf("🚀 Server starting on port %s", config.ServerPort)

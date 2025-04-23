@@ -11,6 +11,7 @@ import NavigationSpeedDial from '@/components/layout/NavigationSpeedDial';
 import TracksPage from '@/pages/TracksPage';
 import ArtistsPage from '@/pages/ArtistsPage';
 import AlbumsPage from '@/pages/AlbumsPage';
+import PlayerPage from '@/pages/PlayerPage';
 
 import { initializeAuthToken, syncUserWithBackend } from '@/features/api/backendApi';
 import { ThemeProvider, useThemeContext } from './context/ThemeContext';
@@ -102,6 +103,7 @@ const AppContent: React.FC = () => {
           <Route path="/tracks/:year?" element={<TracksPage />} />
           <Route path="/artists/:year?" element={<ArtistsPage />} />
           <Route path="/albums/:year?" element={<AlbumsPage />} />
+          <Route path="/player" element={<PlayerPage />} />
 {/* TODO: Add a 404 Not Found route */}
         </Routes>
       </Container>

@@ -140,3 +140,112 @@ func (s *SpotifyService) RefreshAccessToken(refreshToken string) (map[string]int
 	// If it doesn't, the original refresh_token remains valid.
 	return tokenData, nil
 }
+
+// GetCurrentlyPlaying gets information about the user's currently playing track
+func (s *SpotifyService) GetCurrentlyPlaying(accessToken string) (map[string]interface{}, error) {
+	log.Println("Getting currently playing track...")
+	result, err := s.MakeSpotifyAPIRequest("GET", "https://api.spotify.com/v1/me/player/currently-playing", accessToken, nil)
+	if err != nil {
+		log.Printf("Error getting currently playing: %v", err)
+		return nil, err
+	}
+	log.Printf("Currently playing response: %+v", result)
+	return result, nil
+}
+
+// GetQueue gets the user's player queue
+func (s *SpotifyService) GetQueue(accessToken string) (map[string]interface{}, error) {
+	log.Println("Getting player queue...")
+	result, err := s.MakeSpotifyAPIRequest("GET", "https://api.spotify.com/v1/me/player/queue", accessToken, nil)
+	if err != nil {
+		log.Printf("Error getting queue: %v", err)
+		return nil, err
+	}
+	log.Printf("Queue response: %+v", result)
+	return result, nil
+}
+
+// AddToQueue adds a track to the user's player queue
+func (s *SpotifyService) AddToQueue(accessToken string, uri string) error {
+	log.Printf("Adding track to queue: %s", uri)
+	url := fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=%s", url.QueryEscape(uri))
+	_, err := s.MakeSpotifyAPIRequest("POST", url, accessToken, nil)
+	if err != nil {
+		log.Printf("Error adding to queue: %v", err)
+		return err
+	}
+	log.Println("Successfully added to queue")
+	return nil
+}
+
+// ControlPlayback handles play/pause/next/previous operations
+func (s *SpotifyService) ControlPlayback(accessToken string, action string) error {
+	var endpoint string
+	switch action {
+	case "play":
+		endpoint = "https://api.spotify.com/v1/me/player/play"
+	case "pause":
+		endpoint = "https://api.spotify.com/v1/me/player/pause"
+	case "next":
+		endpoint = "https://api.spotify.com/v1/me/player/next"
+	case "previous":
+		endpoint = "https://api.spotify.com/v1/me/player/previous"
+	default:
+		return fmt.Errorf("invalid playback action: %s", action)
+	}
+
+	log.Printf("Controlling playback: %s", action)
+	_, err := s.MakeSpotifyAPIRequest("PUT", endpoint, accessToken, nil)
+	if err != nil {
+		log.Printf("Error controlling playback: %v", err)
+		return err
+	}
+	log.Printf("Successfully executed playback action: %s", action)
+	return nil
+}
+
+// MakeSpotifyAPIRequest is a helper function for making Spotify API requests
+// Now exported so it can be used by the shufl package
+func (s *SpotifyService) MakeSpotifyAPIRequest(method, url, accessToken string, body io.Reader) (map[string]interface{}, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response body first for logging and reuse
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Debug log the raw response
+	log.Printf("Spotify API Response [%s %s] Status: %d, Body: %s", method, url, resp.StatusCode, string(bodyBytes))
+
+	// Handle 204 No Content or empty responses
+	if resp.StatusCode == 204 || len(bodyBytes) == 0 {
+		return nil, nil
+	}
+
+	// For success responses (200-299), try to parse as JSON
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		var result map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &result); err != nil {
+			// If we can't parse JSON but the status is success, just return nil
+			log.Printf("Warning: Successful status but non-JSON response: %s", string(bodyBytes))
+			return nil, nil
+		}
+		return result, nil
+	}
+
+	// For error responses, return the error message
+	return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+}

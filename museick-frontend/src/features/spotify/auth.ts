@@ -35,7 +35,7 @@ export const buildSpotifyAuthUrl = async (): Promise<string> => {
   console.log("Verifier saved to localStorage"); // DEBUG LOG
 
   // --- Add the required scope here ---
-  const requestedScopes = 'user-read-private user-read-email user-top-read playlist-modify-public playlist-modify-private ugc-image-upload';
+  const requestedScopes = 'user-read-private user-read-email user-top-read playlist-modify-public playlist-modify-private ugc-image-upload user-read-currently-playing user-read-playback-state user-modify-playback-state ';
 
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID,

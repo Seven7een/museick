@@ -8,6 +8,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import PersonIcon from '@mui/icons-material/Person';
 import AlbumIcon from '@mui/icons-material/Album';
 import MenuIcon from '@mui/icons-material/Menu';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 
 // Define the navigation actions with an optional 'requiresAuth' flag
 const actions = [
@@ -15,6 +16,7 @@ const actions = [
   { icon: <MusicNoteIcon />, name: 'Tracks', route: '/tracks', requiresAuth: true }, // Requires auth
   { icon: <AlbumIcon />, name: 'Albums', route: '/albums', requiresAuth: true }, // Requires auth
   { icon: <PersonIcon />, name: 'Artists', route: '/artists', requiresAuth: true }, // Requires auth
+  { icon: <QueueMusicIcon />, name: 'Player', route: '/player', requiresAuth: true }, // Requires auth
 ];
 
 const NavigationSpeedDial: React.FC = () => {

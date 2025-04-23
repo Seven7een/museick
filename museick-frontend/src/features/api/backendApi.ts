@@ -183,3 +183,39 @@ export const saveUserSelection = async (
         }
     );
 };
+
+/**
+ * Gets the currently playing track and playback state
+ */
+export const getCurrentlyPlaying = async () => {
+    return _fetchBackendApi('/shufl/player/currently-playing');
+};
+
+/**
+ * Gets the current recommendation queue
+ */
+export const getQueue = async () => {
+    return _fetchBackendApi('/shufl/queue');
+};
+
+/**
+ * Controls playback (play/pause/next/previous)
+ */
+export const controlPlayback = async (action: 'play' | 'pause' | 'next' | 'previous') => {
+    return _fetchBackendApi(`/shufl/player/${action}`, {
+        method: 'PUT'
+    });
+};
+
+/**
+ * Updates track preferences (like/dislike/snooze)
+ */
+export const updateTrackPreference = async (
+    trackId: string, 
+    action: 'like' | 'dislike' | 'snooze'
+) => {
+    return _fetchBackendApi(`/shufl/preferences/${trackId}`, {
+        method: 'POST',
+        body: JSON.stringify({ action })
+    });
+};
